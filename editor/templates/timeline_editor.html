@@ -1,0 +1,2002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hallmark Record - Timeline Editor (Clipchamp Style)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .editor-container {
+            display: grid;
+            grid-template-rows: 60px 1fr 300px;
+            height: 100vh;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            background: #2d2d2d;
+            border-bottom: 1px solid #404040;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            justify-content: space-between;
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .top-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #404040;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #505050;
+        }
+
+        /* Main Content */
+        .main-content {
+            display: grid;
+            grid-template-columns: 250px 1fr 300px;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* Left Panel - Media Library */
+        .media-panel {
+            background: #252525;
+            border-right: 1px solid #404040;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 15px;
+            border-bottom: 1px solid #404040;
+            font-weight: 600;
+        }
+
+        .media-tabs {
+            display: flex;
+            border-bottom: 1px solid #404040;
+        }
+
+        .media-tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .media-tab:hover {
+            background: #303030;
+        }
+
+        .media-tab.active {
+            border-bottom-color: #667eea;
+            color: #667eea;
+        }
+
+        .media-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .media-item {
+            background: #303030;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+            cursor: grab;
+            transition: all 0.3s;
+        }
+
+        .media-item:hover {
+            background: #404040;
+            transform: translateY(-2px);
+        }
+
+        .media-item:active {
+            cursor: grabbing;
+        }
+
+        .media-item img, .media-item video {
+            width: 100%;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+
+        .media-item-name {
+            font-size: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 8px;
+        }
+
+        .add-to-timeline-btn {
+            width: 100%;
+            padding: 6px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .add-to-timeline-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .delete-file-btn {
+            width: 100%;
+            padding: 6px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            transition: all 0.2s;
+            margin-top: 5px;
+        }
+
+        .delete-file-btn:hover {
+            background: #c82333;
+            transform: translateY(-1px);
+        }
+
+        /* Center - Preview */
+        .preview-panel {
+            background: #1a1a1a;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .preview-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+        }
+
+        #preview-video {
+            max-width: 100%;
+            max-height: 100%;
+            background: #000;
+            border-radius: 8px;
+        }
+
+        .overlay-box {
+            position: absolute;
+            border: 3px dashed #667eea;
+            background: rgba(102, 126, 234, 0.2);
+            cursor: move;
+            display: none;
+            box-sizing: border-box;
+        }
+
+        .overlay-box.active {
+            display: block;
+        }
+
+        .overlay-resize-handle {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #667eea;
+            border: 2px solid white;
+            border-radius: 50%;
+        }
+
+        .overlay-resize-handle.nw { top: -6px; left: -6px; cursor: nw-resize; }
+        .overlay-resize-handle.ne { top: -6px; right: -6px; cursor: ne-resize; }
+        .overlay-resize-handle.sw { bottom: -6px; left: -6px; cursor: sw-resize; }
+        .overlay-resize-handle.se { bottom: -6px; right: -6px; cursor: se-resize; }
+
+        .overlay-controls {
+            padding: 10px;
+            background: #252525;
+            border-bottom: 1px solid #404040;
+            display: none;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .overlay-controls.active {
+            display: flex;
+        }
+
+        .preview-controls {
+            padding: 15px 20px;
+            background: #252525;
+            border-top: 1px solid #404040;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .play-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #667eea;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .play-btn:hover {
+            background: #5568d3;
+        }
+
+        .time-display {
+            font-family: monospace;
+            color: #999;
+        }
+
+        .progress-bar {
+            flex: 1;
+            height: 6px;
+            background: #404040;
+            border-radius: 3px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #667eea;
+            border-radius: 3px;
+            width: 0%;
+        }
+
+        /* Right Panel - Properties */
+        .properties-panel {
+            background: #252525;
+            border-left: 1px solid #404040;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .property-group {
+            margin-bottom: 20px;
+        }
+
+        .property-label {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .property-input {
+            width: 100%;
+            padding: 10px;
+            background: #303030;
+            border: 1px solid #404040;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .property-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .property-slider {
+            width: 100%;
+        }
+
+        /* Timeline */
+        .timeline-panel {
+            background: #202020;
+            border-top: 1px solid #404040;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .timeline-header {
+            padding: 10px 20px;
+            background: #252525;
+            border-bottom: 1px solid #404040;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .timeline-tools {
+            display: flex;
+            gap: 10px;
+        }
+
+        .tool-btn {
+            padding: 8px 12px;
+            background: #303030;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .tool-btn:hover {
+            background: #404040;
+        }
+
+        .tool-btn.active {
+            background: #667eea;
+        }
+
+        .timeline-content {
+            flex: 1;
+            display: flex;
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 250px;
+        }
+
+        .timeline-tracks {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            gap: 5px;
+            min-width: max-content;
+        }
+
+        .timeline-track {
+            background: #252525;
+            border-radius: 6px;
+            min-height: 60px;
+            border: 2px dashed #404040;
+            display: flex;
+            align-items: center;
+            padding: 5px;
+            gap: 5px;
+            position: relative;
+        }
+
+        .timeline-track.drag-over {
+            background: #303030;
+            border-color: #667eea;
+        }
+
+        .track-label {
+            writing-mode: vertical-rl;
+            position: absolute;
+            left: -30px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 12px;
+            color: #999;
+        }
+
+        .timeline-clip {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+            padding: 8px;
+            min-width: 100px;
+            width: 150px;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s;
+            margin-right: 5px;
+            display: inline-block;
+        }
+
+        .timeline-clip:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.6);
+        }
+
+        .timeline-clip.selected {
+            outline: 3px solid #00ff00;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+        }
+
+        .clip-trim-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: none;
+        }
+
+        .timeline-clip.selected .clip-trim-overlay {
+            display: block;
+        }
+
+        .trim-marker {
+            position: absolute;
+            width: 3px;
+            height: 100%;
+            top: 0;
+            cursor: col-resize;
+            pointer-events: all;
+            z-index: 10;
+        }
+
+        .trim-marker.in {
+            left: 0;
+            background: #00ff00;
+            border-left: 2px solid #fff;
+        }
+
+        .trim-marker.out {
+            right: 0;
+            background: #ff0000;
+            border-right: 2px solid #fff;
+        }
+
+        .trim-marker:hover {
+            width: 6px;
+        }
+
+        .trim-region {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            background: rgba(0, 255, 0, 0.1);
+            border-left: 2px solid #00ff00;
+            border-right: 2px solid #ff0000;
+            pointer-events: none;
+        }
+
+        .playhead-indicator {
+            position: absolute;
+            width: 2px;
+            height: 100%;
+            background: #ffff00;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            box-shadow: 0 0 5px #ffff00;
+            z-index: 15;
+            display: none;
+        }
+
+        .timeline-clip.selected .playhead-indicator {
+            display: block;
+        }
+
+        .clip-name {
+            font-size: 11px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .clip-duration {
+            font-size: 10px;
+            color: rgba(255,255,255,0.7);
+        }
+
+        .clip-handle {
+            position: absolute;
+            width: 8px;
+            height: 100%;
+            top: 0;
+            cursor: ew-resize;
+            background: rgba(255,255,255,0.3);
+        }
+
+        .clip-handle.left {
+            left: 0;
+            border-radius: 4px 0 0 4px;
+        }
+
+        .clip-handle.right {
+            right: 0;
+            border-radius: 0 4px 4px 0;
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #404040;
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #505050;
+        }
+
+        .message {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            z-index: 1000;
+            display: none;
+            animation: slideIn 0.3s;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+            }
+            to {
+                transform: translateX(0);
+            }
+        }
+
+        .message.success {
+            background: #4caf50;
+        }
+
+        .message.error {
+            background: #f44336;
+        }
+
+        .message.show {
+            display: block;
+        }
+
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            padding: 30px;
+            border-radius: 12px;
+            display: none;
+            z-index: 2000;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #404040;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="editor-container">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <div class="logo">🎥 Hallmark Record</div>
+            <div class="top-controls">
+                <button class="btn btn-secondary" onclick="openRecorder()" title="Open Recording App">🔴 Record New</button>
+                <select id="session-select" class="btn btn-secondary" onchange="loadSession()">
+                    <option value="">Select Session</option>
+                </select>
+                <button class="btn btn-secondary" onclick="createOverlay()">📹 Overlay Camera</button>
+                <button class="btn btn-secondary" onclick="recordAudio()">🎤 Record Audio</button>
+                <button class="btn btn-secondary" onclick="addText()">➕ Text</button>
+                <button class="btn btn-secondary" onclick="addTransition()">✨ Transition</button>
+                <button class="btn btn-primary" onclick="exportProject()">💾 Export</button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Panel - Media Library -->
+            <div class="media-panel">
+                <div class="panel-header">Media Library</div>
+                <div class="media-tabs">
+                    <div class="media-tab active" data-tab="media">📹 Media</div>
+                    <div class="media-tab" data-tab="text">📝 Text</div>
+                </div>
+                <div class="media-list" id="media-list"></div>
+            </div>
+
+            <!-- Center - Preview -->
+            <div class="preview-panel">
+                <div class="overlay-controls" id="overlay-controls">
+                    <span style="color: #999; font-size: 12px;">📹 Overlay Mode: Drag to position, resize corners</span>
+                    <button class="btn btn-primary" onclick="applyOverlay()" style="font-size: 12px; padding: 6px 12px;">✅ Apply Overlay</button>
+                    <button class="btn btn-secondary" onclick="cancelOverlay()" style="font-size: 12px; padding: 6px 12px;">❌ Cancel</button>
+                </div>
+                <div class="trim-controls" style="padding: 10px; background: #252525; display: flex; gap: 10px; justify-content: center; align-items: center;">
+                    <button class="btn btn-secondary" onclick="markIn()" style="font-size: 12px; padding: 6px 12px;">⏮️ Mark In</button>
+                    <span id="trim-range" style="font-size: 12px; color: #999;">No trim points set</span>
+                    <button class="btn btn-secondary" onclick="markOut()" style="font-size: 12px; padding: 6px 12px;">⏭️ Mark Out</button>
+                    <button class="btn btn-primary" onclick="trimSelectedClip()" style="font-size: 12px; padding: 6px 12px;">✂️ Trim Clip</button>
+                    <button class="btn btn-secondary" onclick="clearMarks()" style="font-size: 12px; padding: 6px 12px;">🗑️ Clear</button>
+                    <button class="btn btn-secondary" onclick="splitAtPlayhead()" style="font-size: 12px; padding: 6px 12px;">✂️ Split at Playhead</button>
+                </div>
+                <div class="preview-container">
+                    <video id="preview-video" controls ontimeupdate="updatePreviewTime()"></video>
+                    <div id="overlay-box" class="overlay-box">
+                        <div class="overlay-resize-handle nw"></div>
+                        <div class="overlay-resize-handle ne"></div>
+                        <div class="overlay-resize-handle sw"></div>
+                        <div class="overlay-resize-handle se"></div>
+                    </div>
+                </div>
+                <div class="preview-controls">
+                    <button class="play-btn" onclick="togglePlay()">▶</button>
+                    <span class="time-display" id="time-display">0:00 / 0:00</span>
+                    <div class="progress-bar" onclick="seek(event)" style="position: relative;">
+                        <div class="progress-fill" id="progress-fill"></div>
+                        <div id="mark-in-indicator" style="position: absolute; width: 3px; height: 100%; background: #00ff00; display: none; top: 0; z-index: 10;"></div>
+                        <div id="mark-out-indicator" style="position: absolute; width: 3px; height: 100%; background: #ff0000; display: none; top: 0; z-index: 10;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel - Properties -->
+            <div class="properties-panel">
+                <h3>Properties</h3>
+                <div id="properties-content">
+                    <p style="color: #666; text-align: center; margin-top: 50px;">
+                        Select a clip to edit properties
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="timeline-panel">
+            <div class="timeline-header">
+                <span style="font-weight: 600;">Timeline</span>
+                <div class="timeline-tools">
+                    <button class="tool-btn" onclick="addTrack()">➕ Track</button>
+                    <button class="tool-btn" onclick="splitClip()">✂️ Split</button>
+                    <button class="tool-btn" onclick="deleteClip()">🗑️ Delete</button>
+                    <button class="tool-btn" onclick="zoomIn()">🔍+</button>
+                    <button class="tool-btn" onclick="zoomOut()">🔍-</button>
+                </div>
+            </div>
+            <div class="timeline-content">
+                <div class="timeline-tracks" id="timeline-tracks">
+                    <div class="timeline-track" data-track="video1" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="dragLeave(event)">
+                        <span class="track-label">Video 1</span>
+                    </div>
+                    <div class="timeline-track" data-track="video2" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="dragLeave(event)">
+                        <span class="track-label">Video 2</span>
+                    </div>
+                    <div class="timeline-track" data-track="audio1" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="dragLeave(event)">
+                        <span class="track-label">Audio 1</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="message" class="message"></div>
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Processing...</p>
+    </div>
+
+    <script>
+        let sessions = [];
+        let currentSession = null;
+        let timeline = {
+            tracks: {
+                video1: [],
+                video2: [],
+                audio1: []
+            }
+        };
+        let selectedClip = null;
+        let clipCounter = 0;
+        let markInTime = null;
+        let markOutTime = null;
+        let timelineZoom = 1; // Zoom level (pixels per second)
+
+        console.log('✅ Timeline Editor Script Loaded!');
+
+        // Load sessions on page load
+        window.addEventListener('load', () => {
+            console.log('🔄 Page load event fired');
+            loadSessions();
+        });
+
+        async function loadSessions() {
+            console.log('📂 loadSessions() called');
+            try {
+                console.log('Fetching sessions from /api/sessions...');
+                const response = await fetch('/api/sessions');
+                const data = await response.json();
+                console.log('Sessions data received:', data);
+                sessions = data.sessions;
+                console.log('Total sessions:', sessions.length);
+                
+                const select = document.getElementById('session-select');
+                select.innerHTML = '<option value="">Select Session</option>';
+                
+                sessions.forEach(session => {
+                    const option = document.createElement('option');
+                    option.value = session.name;
+                    
+                    // Format session name for display
+                    const match = session.name.match(/session_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
+                    if (match) {
+                        const [_, year, month, day, hour, min, sec] = match;
+                        option.textContent = `${month}/${day}/${year} ${hour}:${min}:${sec} (${session.file_count} files)`;
+                    } else {
+                        option.textContent = `${session.name} (${session.file_count} files)`;
+                    }
+                    
+                    select.appendChild(option);
+                });
+                
+                // Auto-select most recent session and load it
+                if (sessions.length > 0) {
+                    const lastSession = sessions[sessions.length - 1];
+                    select.value = lastSession.name;
+                    currentSession = lastSession;
+                    
+                    // Small delay to ensure DOM is ready
+                    setTimeout(() => {
+                        displayMediaLibrary();
+                        showMessage(`📂 Loaded: ${lastSession.name.split('_').slice(1).join('_')} with ${lastSession.file_count} files`, 'success');
+                    }, 100);
+                }
+            } catch (error) {
+                showMessage('Error loading sessions: ' + error.message, 'error');
+            }
+        }
+
+        function loadSession() {
+            const sessionName = document.getElementById('session-select').value;
+            if (!sessionName) return;
+            
+            currentSession = sessions.find(s => s.name === sessionName);
+            displayMediaLibrary();
+        }
+
+        function displayMediaLibrary() {
+            const mediaList = document.getElementById('media-list');
+            mediaList.innerHTML = '';
+            
+            if (!currentSession) {
+                console.log('No current session');
+                return;
+            }
+            
+            console.log('Loading session:', currentSession.name, 'Files:', currentSession.files);
+            
+            // Clear existing timeline
+            document.querySelectorAll('.timeline-clip').forEach(clip => clip.remove());
+            timeline.tracks.video1 = [];
+            timeline.tracks.video2 = [];
+            timeline.tracks.audio1 = [];
+            clipCounter = 0;
+            
+            // Auto-load files to timeline
+            const videos = currentSession.files.filter(f => f.type === 'video');
+            const audios = currentSession.files.filter(f => f.type === 'audio');
+            
+            console.log('Videos found:', videos.length, videos);
+            console.log('Audios found:', audios.length, audios);
+            
+            // Load videos to video tracks (automatically add more tracks if needed)
+            const videoTracks = ['video1', 'video2'];
+            videos.forEach((file, index) => {
+                let trackName = videoTracks[index];
+                
+                // If we need more tracks, add them dynamically
+                if (index >= videoTracks.length) {
+                    trackName = `video${index + 1}`;
+                    const tracksContainer = document.getElementById('timeline-tracks');
+                    const track = document.createElement('div');
+                    track.className = 'timeline-track';
+                    track.dataset.track = trackName;
+                    track.ondrop = drop;
+                    track.ondragover = allowDrop;
+                    track.ondragleave = dragLeave;
+                    track.innerHTML = `<span class="track-label">Video ${index + 1}</span>`;
+                    tracksContainer.insertBefore(track, tracksContainer.lastElementChild);
+                    timeline.tracks[trackName] = [];
+                }
+                
+                console.log('Adding video to', trackName, file.name);
+                addClipToTrack(file.name, file.type, trackName);
+            });
+            
+            // Load first audio to audio track
+            if (audios.length > 0) {
+                console.log('Adding audio to audio1', audios[0].name);
+                addClipToTrack(audios[0].name, audios[0].type, 'audio1');
+            }
+            
+            const totalLoaded = videos.length + audios.length;
+            if (totalLoaded > 0) {
+                showMessage(`✅ Auto-loaded ${videos.length} video(s) and ${audios.length} audio(s) to timeline`, 'success');
+            }
+            
+            // Display in media library
+            
+            currentSession.files.forEach((file, index) => {
+                const item = document.createElement('div');
+                item.className = 'media-item';
+                item.draggable = true;
+                item.dataset.file = file.name;
+                item.dataset.type = file.type;
+                
+                if (file.type === 'video') {
+                    item.innerHTML = `
+                        <video src="/api/preview/${currentSession.name}/${file.name}" muted></video>
+                        <div class="media-item-name">${file.name}</div>
+                        <button class="add-to-timeline-btn" onclick="addToTimeline('${file.name}', '${file.type}')">+ Add</button>
+                        <button class="delete-file-btn" onclick="deleteFile('${file.name}')">🗑️ Delete File</button>
+                    `;
+                } else {
+                    item.innerHTML = `
+                        <div style="background: #404040; height: 60px; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
+                            🎵
+                        </div>
+                        <div class="media-item-name">${file.name}</div>
+                        <button class="add-to-timeline-btn" onclick="addToTimeline('${file.name}', '${file.type}')">+ Add</button>
+                        <button class="delete-file-btn" onclick="deleteFile('${file.name}')">🗑️ Delete File</button>
+                    `;
+                }
+                
+                item.addEventListener('dragstart', dragStart);
+                
+                // Click to preview
+                item.addEventListener('click', (e) => {
+                    if (!e.target.classList.contains('add-to-timeline-btn') && !e.target.classList.contains('delete-file-btn')) {
+                        previewMedia(file.name, file.type);
+                    }
+                });
+                
+                mediaList.appendChild(item);
+            });
+        }
+
+        function dragStart(e) {
+            e.dataTransfer.setData('file', e.target.dataset.file);
+            e.dataTransfer.setData('type', e.target.dataset.type);
+        }
+
+        function allowDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        function dragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function drop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            
+            const fileName = e.dataTransfer.getData('file');
+            const fileType = e.dataTransfer.getData('type');
+            const trackElement = e.currentTarget;
+            const trackName = trackElement.dataset.track;
+            
+            addClipToTrack(fileName, fileType, trackName, trackElement);
+        }
+
+        function addClipToTrack(fileName, fileType, trackName, trackElement) {
+            // If trackElement not provided, find it by track name
+            if (!trackElement) {
+                trackElement = document.querySelector(`.timeline-track[data-track="${trackName}"]`);
+                console.log('Looking for track:', trackName, 'Found:', trackElement);
+                if (!trackElement) {
+                    console.error(`Track ${trackName} not found in DOM`);
+                    return;
+                }
+            }
+            
+            console.log('Adding clip:', fileName, 'to track:', trackName);
+            
+            clipCounter++;
+            
+            const clip = document.createElement('div');
+            clip.className = 'timeline-clip';
+            clip.dataset.clipId = `clip-${clipCounter}`;
+            clip.dataset.file = fileName;
+            clip.dataset.type = fileType;
+            clip.draggable = true;
+            
+            clip.innerHTML = `
+                <div class="clip-handle left"></div>
+                <div class="clip-name">${fileName.substring(0, 20)}...</div>
+                <div class="clip-duration">Loading...</div>
+                <div class="clip-handle right"></div>
+                <div class="clip-trim-overlay">
+                    <div class="trim-marker in"></div>
+                    <div class="trim-marker out"></div>
+                    <div class="trim-region"></div>
+                    <div class="playhead-indicator"></div>
+                </div>
+            `;
+            
+            clip.addEventListener('click', () => selectClip(clip));
+            
+            // Add click-to-seek functionality
+            clip.addEventListener('click', (e) => {
+                if (e.target.classList.contains('trim-marker') || 
+                    e.target.classList.contains('clip-handle')) {
+                    return; // Don't seek when clicking trim markers or handles
+                }
+                
+                const clipRect = clip.getBoundingClientRect();
+                const clickX = e.clientX - clipRect.left;
+                const clipWidth = clipRect.width;
+                const percent = Math.max(0, Math.min(1, clickX / clipWidth));
+                const clipDuration = parseFloat(clip.dataset.duration || 10);
+                const seekTime = percent * clipDuration;
+                
+                // Seek video to this position
+                const video = document.getElementById('preview-video');
+                if (video && video.src) {
+                    video.currentTime = seekTime;
+                    
+                    // Update playhead indicator
+                    const playhead = clip.querySelector('.playhead-indicator');
+                    if (playhead) {
+                        playhead.style.left = (percent * 100) + '%';
+                    }
+                    
+                    showMessage(`⏱️ Seek to ${formatTime(seekTime)}`, 'info');
+                }
+            });
+            
+            trackElement.appendChild(clip);
+            
+            console.log('Clip added to DOM, element:', clip);
+            
+            // Get actual video/audio duration
+            if (currentSession && fileType === 'video') {
+                const videoUrl = `/api/preview/${currentSession.name}/${fileName}`;
+                const tempVideo = document.createElement('video');
+                tempVideo.src = videoUrl;
+                tempVideo.addEventListener('loadedmetadata', () => {
+                    const duration = tempVideo.duration;
+                    const durationSec = Math.round(duration);
+                    
+                    // Update clip display
+                    const durationEl = clip.querySelector('.clip-duration');
+                    if (durationEl) {
+                        durationEl.textContent = durationSec + 's';
+                    }
+                    
+                    // Store duration on clip element
+                    clip.dataset.duration = duration;
+                    
+                    // Set width based on duration and zoom level
+                    const baseWidth = 100; // Base pixels per 10 seconds
+                    const width = (duration / 10) * baseWidth * timelineZoom;
+                    clip.style.width = Math.max(50, width) + 'px';
+                    clip.style.minWidth = Math.max(50, width) + 'px';
+                    
+                    // Update timeline data
+                    const clipData = timeline.tracks[trackName].find(c => c.id === `clip-${clipCounter}`);
+                    if (clipData) {
+                        clipData.duration = durationSec;
+                    }
+                });
+            } else {
+                // For audio, default to 5s for now
+                clip.style.width = '150px';
+            }
+            
+            timeline.tracks[trackName].push({
+                id: `clip-${clipCounter}`,
+                file: fileName,
+                type: fileType,
+                duration: 5,
+                volume: 100,
+                speed: 1
+            });
+        }
+
+        function selectClip(clipElement) {
+            // Remove selection from all clips
+            document.querySelectorAll('.timeline-clip').forEach(c => {
+                c.classList.remove('selected');
+                c.style.border = 'none';
+            });
+            
+            // Select this clip
+            clipElement.classList.add('selected');
+            clipElement.style.border = '2px solid #fff';
+            selectedClip = clipElement;
+            
+            // Initialize trim markers for this clip
+            initializeTrimMarkers(clipElement);
+            
+            // Load video in preview
+            const fileName = clipElement.dataset.file;
+            if (currentSession) {
+                previewMedia(fileName, clipElement.dataset.type || 'video');
+            }
+            
+            // Show properties
+            showClipProperties(clipElement);
+        }
+
+        function initializeTrimMarkers(clipElement) {
+            const inMarker = clipElement.querySelector('.trim-marker.in');
+            const outMarker = clipElement.querySelector('.trim-marker.out');
+            const trimRegion = clipElement.querySelector('.trim-region');
+            
+            if (!inMarker || !outMarker || !trimRegion) return;
+            
+            // Reset positions
+            inMarker.style.left = '0px';
+            outMarker.style.right = '0px';
+            trimRegion.style.left = '0px';
+            trimRegion.style.right = '0px';
+            
+            let isDraggingIn = false;
+            let isDraggingOut = false;
+            let clipWidth = clipElement.offsetWidth;
+            let clipDuration = parseFloat(clipElement.dataset.duration || 10);
+            
+            inMarker.addEventListener('mousedown', (e) => {
+                isDraggingIn = true;
+                clipWidth = clipElement.offsetWidth;
+                clipDuration = parseFloat(clipElement.dataset.duration || 10);
+                e.stopPropagation();
+            });
+            
+            outMarker.addEventListener('mousedown', (e) => {
+                isDraggingOut = true;
+                clipWidth = clipElement.offsetWidth;
+                clipDuration = parseFloat(clipElement.dataset.duration || 10);
+                e.stopPropagation();
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (!isDraggingIn && !isDraggingOut) return;
+                
+                const clipRect = clipElement.getBoundingClientRect();
+                const relativeX = e.clientX - clipRect.left;
+                const percent = Math.max(0, Math.min(1, relativeX / clipWidth));
+                
+                if (isDraggingIn) {
+                    const currentOutPercent = parseFloat(outMarker.style.right || '0') / clipWidth;
+                    if (percent < (1 - currentOutPercent)) {
+                        inMarker.style.left = (percent * clipWidth) + 'px';
+                        trimRegion.style.left = (percent * clipWidth) + 'px';
+                        
+                        // Update mark in time
+                        markInTime = percent * clipDuration;
+                        updateTrimRange();
+                    }
+                } else if (isDraggingOut) {
+                    const currentInPercent = parseFloat(inMarker.style.left || '0') / clipWidth;
+                    if ((1 - percent) > currentInPercent) {
+                        outMarker.style.right = ((1 - percent) * clipWidth) + 'px';
+                        trimRegion.style.right = ((1 - percent) * clipWidth) + 'px';
+                        
+                        // Update mark out time
+                        markOutTime = percent * clipDuration;
+                        updateTrimRange();
+                    }
+                }
+            });
+            
+            document.addEventListener('mouseup', () => {
+                isDraggingIn = false;
+                isDraggingOut = false;
+            });
+        }
+
+        function showClipProperties(clipElement) {
+            const clipId = clipElement.dataset.clipId;
+            const trackName = clipElement.parentElement.dataset.track;
+            const clipData = timeline.tracks[trackName].find(c => c.id === clipId);
+            
+            const content = document.getElementById('properties-content');
+            content.innerHTML = `
+                <div class="property-group">
+                    <label class="property-label">Clip Name</label>
+                    <input type="text" class="property-input" id="prop-name" value="${clipElement.dataset.file}" readonly>
+                </div>
+                <div class="property-group">
+                    <label class="property-label">Duration (seconds)</label>
+                    <input type="number" class="property-input" id="prop-duration" value="${clipData?.duration || 5}" min="0.1" step="0.1">
+                </div>
+                <div class="property-group">
+                    <label class="property-label">Volume (%)</label>
+                    <input type="range" class="property-slider" id="prop-volume" min="0" max="100" value="${clipData?.volume || 100}">
+                    <span id="volume-display">${clipData?.volume || 100}%</span>
+                </div>
+                <div class="property-group">
+                    <label class="property-label">Speed (x)</label>
+                    <input type="range" class="property-slider" id="prop-speed" min="0.5" max="2" value="${clipData?.speed || 1}" step="0.1">
+                    <span id="speed-display">${clipData?.speed || 1}x</span>
+                </div>
+                <div class="property-group">
+                    <button class="btn btn-secondary" style="width: 100%;" onclick="applyProperties()">Apply</button>
+                    <button class="btn btn-secondary" style="width: 100%; margin-top: 10px;" onclick="deleteSelectedClip()">Delete Clip</button>
+                </div>
+            `;
+            
+            // Update display on slider change
+            document.getElementById('prop-volume').addEventListener('input', (e) => {
+                document.getElementById('volume-display').textContent = e.target.value + '%';
+            });
+            document.getElementById('prop-speed').addEventListener('input', (e) => {
+                document.getElementById('speed-display').textContent = e.target.value + 'x';
+            });
+        }
+
+        function applyProperties() {
+            if (!selectedClip) {
+                showMessage('No clip selected', 'error');
+                return;
+            }
+            
+            const clipId = selectedClip.dataset.clipId;
+            const trackName = selectedClip.parentElement.dataset.track;
+            const clipData = timeline.tracks[trackName].find(c => c.id === clipId);
+            
+            if (clipData) {
+                // Get values from inputs
+                const duration = parseFloat(document.getElementById('prop-duration').value);
+                const volume = parseInt(document.getElementById('prop-volume').value);
+                const speed = parseFloat(document.getElementById('prop-speed').value);
+                
+                // Update clip data
+                clipData.duration = duration;
+                clipData.volume = volume;
+                clipData.speed = speed;
+                
+                // Update visual display
+                const durationDisplay = selectedClip.querySelector('.clip-duration');
+                if (durationDisplay) {
+                    durationDisplay.textContent = duration + 's';
+                }
+                
+                // Update clip width based on duration (rough visual representation)
+                const baseWidth = 150;
+                selectedClip.style.width = (baseWidth * (duration / 5)) + 'px';
+                
+                showMessage('✅ Properties applied', 'success');
+            }
+        }
+
+        function deleteSelectedClip() {
+            if (!selectedClip) {
+                showMessage('No clip selected', 'error');
+                return;
+            }
+            
+            const clipId = selectedClip.dataset.clipId;
+            const trackName = selectedClip.parentElement.dataset.track;
+            
+            // Remove from timeline data
+            timeline.tracks[trackName] = timeline.tracks[trackName].filter(c => c.id !== clipId);
+            
+            // Remove from DOM
+            selectedClip.remove();
+            selectedClip = null;
+            
+            // Clear properties panel
+            document.getElementById('properties-content').innerHTML = '<p style="color: #999; padding: 20px;">Select a clip to edit properties</p>';
+            
+            showMessage('🗑️ Clip deleted', 'success');
+        }
+
+        function addTrack() {
+            const trackName = `track-${Date.now()}`;
+            const tracksContainer = document.getElementById('timeline-tracks');
+            
+            const track = document.createElement('div');
+            track.className = 'timeline-track';
+            track.dataset.track = trackName;
+            track.ondrop = drop;
+            track.ondragover = allowDrop;
+            track.ondragleave = dragLeave;
+            track.innerHTML = `<span class="track-label">Track ${Object.keys(timeline.tracks).length + 1}</span>`;
+            
+            tracksContainer.appendChild(track);
+            timeline.tracks[trackName] = [];
+            
+            showMessage('Track added', 'success');
+        }
+
+        function splitClip() {
+            if (!selectedClip) {
+                showMessage('Select a clip first', 'error');
+                return;
+            }
+            showMessage('Split functionality coming soon', 'success');
+        }
+
+        function deleteClip() {
+            if (!selectedClip) {
+                showMessage('Select a clip first', 'error');
+                return;
+            }
+            selectedClip.remove();
+            selectedClip = null;
+            showMessage('Clip deleted', 'success');
+        }
+
+        function zoomIn() {
+            timelineZoom = Math.min(timelineZoom * 1.5, 10); // Max 10x zoom
+            applyTimelineZoom();
+            showMessage(`Timeline zoom: ${Math.round(timelineZoom * 100)}%`, 'info');
+        }
+
+        function zoomOut() {
+            timelineZoom = Math.max(timelineZoom / 1.5, 0.5); // Min 0.5x zoom
+            applyTimelineZoom();
+            showMessage(`Timeline zoom: ${Math.round(timelineZoom * 100)}%`, 'info');
+        }
+
+        function applyTimelineZoom() {
+            document.querySelectorAll('.timeline-clip').forEach(clip => {
+                const duration = parseFloat(clip.dataset.duration || 10);
+                const baseWidth = 100; // Base pixels per 10 seconds
+                const newWidth = (duration / 10) * baseWidth * timelineZoom;
+                clip.style.minWidth = Math.max(50, newWidth) + 'px';
+                clip.style.width = Math.max(50, newWidth) + 'px';
+            });
+        }
+
+        function addText() {
+            showMessage('Text overlay functionality coming soon', 'success');
+        }
+
+        function addTransition() {
+            showMessage('Transition functionality coming soon', 'success');
+        }
+
+        function togglePlay() {
+            const video = document.getElementById('preview-video');
+            const btn = document.querySelector('.play-btn');
+            
+            if (video.paused) {
+                video.play();
+                btn.textContent = '⏸';
+            } else {
+                video.pause();
+                btn.textContent = '▶';
+            }
+        }
+
+        function seek(e) {
+            const video = document.getElementById('preview-video');
+            const bar = e.currentTarget;
+            const percent = e.offsetX / bar.offsetWidth;
+            video.currentTime = percent * video.duration;
+        }
+
+        // Update progress bar
+        function updatePreviewTime() {
+            const video = document.getElementById('preview-video');
+            if (video.duration) {
+                const percent = (video.currentTime / video.duration) * 100;
+                document.getElementById('progress-fill').style.width = percent + '%';
+                
+                const current = formatTime(video.currentTime);
+                const total = formatTime(video.duration);
+                document.getElementById('time-display').textContent = `${current} / ${total}`;
+                
+                // Update playhead indicator on selected timeline clip
+                if (selectedClip) {
+                    const clipDuration = parseFloat(selectedClip.dataset.duration || video.duration);
+                    const playhead = selectedClip.querySelector('.playhead-indicator');
+                    if (playhead && video.currentTime <= clipDuration) {
+                        const playheadPercent = (video.currentTime / clipDuration) * 100;
+                        playhead.style.left = playheadPercent + '%';
+                    }
+                }
+            }
+        }
+
+        function markIn() {
+            const video = document.getElementById('preview-video');
+            if (!video.src) {
+                showMessage('Load a video first', 'error');
+                return;
+            }
+            markInTime = video.currentTime;
+            const indicator = document.getElementById('mark-in-indicator');
+            indicator.style.left = ((markInTime / video.duration) * 100) + '%';
+            indicator.style.display = 'block';
+            updateTrimRange();
+            showMessage(`⏮️ Mark In set at ${formatTime(markInTime)}`, 'success');
+        }
+
+        function markOut() {
+            const video = document.getElementById('preview-video');
+            if (!video.src) {
+                showMessage('Load a video first', 'error');
+                return;
+            }
+            markOutTime = video.currentTime;
+            const indicator = document.getElementById('mark-out-indicator');
+            indicator.style.left = ((markOutTime / video.duration) * 100) + '%';
+            indicator.style.display = 'block';
+            updateTrimRange();
+            showMessage(`⏭️ Mark Out set at ${formatTime(markOutTime)}`, 'success');
+        }
+
+        function updateTrimRange() {
+            const display = document.getElementById('trim-range');
+            if (markInTime !== null && markOutTime !== null) {
+                const duration = markOutTime - markInTime;
+                display.textContent = `${formatTime(markInTime)} → ${formatTime(markOutTime)} (${formatTime(duration)})`;
+                display.style.color = '#667eea';
+            } else if (markInTime !== null) {
+                display.textContent = `Start: ${formatTime(markInTime)}`;
+                display.style.color = '#999';
+            } else if (markOutTime !== null) {
+                display.textContent = `End: ${formatTime(markOutTime)}`;
+                display.style.color = '#999';
+            } else {
+                display.textContent = 'No trim points set';
+                display.style.color = '#999';
+            }
+        }
+
+        function clearMarks() {
+            markInTime = null;
+            markOutTime = null;
+            document.getElementById('mark-in-indicator').style.display = 'none';
+            document.getElementById('mark-out-indicator').style.display = 'none';
+            updateTrimRange();
+            showMessage('🗑️ Marks cleared', 'info');
+        }
+
+        async function trimSelectedClip() {
+            if (!selectedClip) {
+                showMessage('Select a clip on the timeline first', 'error');
+                return;
+            }
+            
+            if (markInTime === null || markOutTime === null) {
+                showMessage('Set both Mark In and Mark Out points', 'error');
+                return;
+            }
+            
+            if (markInTime >= markOutTime) {
+                showMessage('Mark In must be before Mark Out', 'error');
+                return;
+            }
+            
+            const fileName = selectedClip.dataset.file;
+            showLoading(true);
+            
+            try {
+                const response = await fetch('/api/trim', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        session: currentSession.name,
+                        filename: fileName,
+                        start_time: markInTime,
+                        end_time: markOutTime
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage(`✅ Trimmed: ${data.output}`, 'success');
+                    clearMarks();
+                    await loadSessions();
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    loadSession();
+                } else {
+                    showMessage('Trim failed: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function splitAtPlayhead() {
+            if (!selectedClip) {
+                showMessage('Select a clip on the timeline first', 'error');
+                return;
+            }
+            
+            const video = document.getElementById('preview-video');
+            const splitTime = video.currentTime;
+            
+            if (!splitTime || splitTime <= 0 || splitTime >= video.duration) {
+                showMessage('Move playhead to where you want to split the clip', 'error');
+                return;
+            }
+            
+            const fileName = selectedClip.dataset.file;
+            const splitConfirm = confirm(`Split "${fileName}" at ${formatTime(splitTime)}?\n\nThis will create two new clips:\n- Part 1: 0:00 to ${formatTime(splitTime)}\n- Part 2: ${formatTime(splitTime)} to end`);
+            
+            if (!splitConfirm) return;
+            
+            showLoading(true);
+            
+            try {
+                // Create first part (beginning to split point)
+                const response1 = await fetch('/api/trim', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        session: currentSession.name,
+                        filename: fileName,
+                        start_time: 0,
+                        end_time: splitTime,
+                        output_name: `${fileName.replace('.mp4', '')}_part1_${Date.now()}.mp4`
+                    })
+                });
+                
+                const data1 = await response1.json();
+                
+                // Create second part (split point to end)
+                const response2 = await fetch('/api/trim', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        session: currentSession.name,
+                        filename: fileName,
+                        start_time: splitTime,
+                        end_time: video.duration,
+                        output_name: `${fileName.replace('.mp4', '')}_part2_${Date.now()}.mp4`
+                    })
+                });
+                
+                const data2 = await response2.json();
+                
+                if (data1.success && data2.success) {
+                    showMessage(`✅ Split complete! Created:\n${data1.output}\n${data2.output}`, 'success');
+                    await loadSessions();
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    loadSession();
+                } else {
+                    showMessage('Split failed: ' + (data1.error || data2.error), 'error');
+                }
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        async function exportProject() {
+            showLoading(true);
+            
+            // Build timeline data
+            const timelineData = {
+                session: currentSession.name,
+                timeline: timeline
+            };
+            
+            try {
+                const response = await fetch('/api/export-timeline', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(timelineData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage('Project exported successfully!', 'success');
+                } else {
+                    showMessage('Export failed: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function showMessage(text, type) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = `message ${type} show`;
+            setTimeout(() => msg.classList.remove('show'), 3000);
+        }
+
+        async function openRecorder() {
+            try {
+                showLoading(true);
+                const response = await fetch('/api/launch-recorder', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage('🎥 Recording app launched! Check your taskbar.', 'success');
+                } else {
+                    showMessage('Error: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('Error launching recorder: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').classList.toggle('show', show);
+        }
+
+        function previewMedia(fileName, fileType) {
+            if (!currentSession) return;
+            
+            const video = document.getElementById('preview-video');
+            const url = `/api/preview/${currentSession.name}/${fileName}`;
+            
+            if (fileType === 'video') {
+                video.src = url;
+                video.load();
+                showMessage(`▶️ Previewing: ${fileName}`, 'info');
+            } else if (fileType === 'audio') {
+                video.src = url;
+                video.load();
+                showMessage(`🎵 Playing audio: ${fileName}`, 'info');
+            }
+        }
+
+        function addToTimeline(fileName, fileType) {
+            if (!currentSession) {
+                showMessage('No session selected', 'error');
+                return;
+            }
+            
+            // Determine which track to add to
+            let trackName;
+            if (fileType === 'video') {
+                // Add to first available video track
+                if (timeline.tracks.video1.length === 0) {
+                    trackName = 'video1';
+                } else if (timeline.tracks.video2.length === 0) {
+                    trackName = 'video2';
+                } else {
+                    trackName = 'video1'; // Add to end of video1
+                }
+            } else {
+                trackName = 'audio1';
+            }
+            
+            addClipToTrack(fileName, fileType, trackName);
+            showMessage(`✅ Added ${fileName} to ${trackName.toUpperCase()}`, 'success');
+        }
+
+        async function createOverlay() {
+            try {
+                if (!currentSession) {
+                    showMessage('Please select a session first', 'error');
+                    return;
+                }
+
+                // Find desktop and camera recordings
+                const videos = currentSession.files.filter(f => f && f.type === 'video');
+                console.log('All videos in session:', videos.map(v => v.name));
+                
+                // Try to find monitor/desktop recording
+                let desktopVideo = videos.find(f => f.name && (
+                    f.name.toLowerCase().includes('monitor') || 
+                    f.name.toLowerCase().includes('desktop') || 
+                    f.name.toLowerCase().includes('screen')
+                ));
+                
+                // Try to find camera recording
+                let cameraVideo = videos.find(f => f.name && (
+                    f.name.toLowerCase().includes('camera') || 
+                    f.name.toLowerCase().includes('cam') ||
+                    f.name.toLowerCase().includes('webcam')
+                ));
+
+                // If we have multiple videos but couldn't auto-detect, let user choose
+                if (videos.length >= 2 && (!desktopVideo || !cameraVideo)) {
+                    // Show available videos
+                    let videoList = videos.map((v, i) => `${i + 1}. ${v.name}`).join('\n');
+                    
+                    if (!desktopVideo) {
+                        const bgChoice = prompt(`Select background video (desktop/monitor):\n\n${videoList}\n\nEnter number:`, '1');
+                        const bgIndex = parseInt(bgChoice) - 1;
+                        if (bgIndex >= 0 && bgIndex < videos.length) {
+                            desktopVideo = videos[bgIndex];
+                        }
+                    }
+                    
+                    if (!cameraVideo) {
+                        const camChoice = prompt(`Select overlay video (camera):\n\n${videoList}\n\nEnter number:`, '2');
+                        const camIndex = parseInt(camChoice) - 1;
+                        if (camIndex >= 0 && camIndex < videos.length) {
+                            cameraVideo = videos[camIndex];
+                        }
+                    }
+                }
+
+                console.log('Desktop video:', desktopVideo);
+                console.log('Camera video:', cameraVideo);
+
+                if (!desktopVideo || !cameraVideo) {
+                    const missing = [];
+                    if (!desktopVideo) missing.push('background video');
+                    if (!cameraVideo) missing.push('overlay video');
+                    showMessage(`Missing: ${missing.join(' and ')}. Need 2 videos to create overlay. Available: ${videos.length} video(s)`, 'error');
+                    return;
+                }
+
+                if (desktopVideo === cameraVideo) {
+                    showMessage('Background and overlay must be different videos', 'error');
+                    return;
+                }
+
+                // Store for later use
+                window.overlayData = {
+                    desktopVideo: desktopVideo.name,
+                    cameraVideo: cameraVideo.name
+                };
+
+                // Load desktop video in preview
+                const video = document.getElementById('preview-video');
+                video.src = `/api/preview/${currentSession.name}/${desktopVideo.name}`;
+                video.load();
+                
+                // Wait for video to load and get dimensions
+                video.onloadedmetadata = () => {
+                    const videoRect = video.getBoundingClientRect();
+                    const overlayBox = document.getElementById('overlay-box');
+                    const overlayControls = document.getElementById('overlay-controls');
+                    
+                    // Position overlay box (default: bottom right, 25% size)
+                    const overlayWidth = videoRect.width * 0.25;
+                    const overlayHeight = (overlayWidth * 9) / 16; // Maintain 16:9 aspect ratio
+                    const overlayX = videoRect.width - overlayWidth - 20;
+                    const overlayY = videoRect.height - overlayHeight - 20;
+                    
+                    overlayBox.style.width = overlayWidth + 'px';
+                    overlayBox.style.height = overlayHeight + 'px';
+                    overlayBox.style.left = overlayX + 'px';
+                    overlayBox.style.top = overlayY + 'px';
+                    overlayBox.classList.add('active');
+                    overlayControls.classList.add('active');
+                    
+                    initializeOverlayDrag();
+                    
+                    showMessage('📹 Drag and resize the overlay box, then click Apply', 'info');
+                };
+            } catch (error) {
+                console.error('Error in createOverlay:', error);
+                showMessage('Error setting up overlay: ' + error.message, 'error');
+            }
+        }
+
+        let isDragging = false;
+        let isResizing = false;
+        let resizeHandle = null;
+        let startX, startY, startWidth, startHeight, startLeft, startTop;
+
+        function initializeOverlayDrag() {
+            const overlayBox = document.getElementById('overlay-box');
+            const video = document.getElementById('preview-video');
+            
+            // Dragging
+            overlayBox.addEventListener('mousedown', (e) => {
+                if (e.target.classList.contains('overlay-resize-handle')) {
+                    isResizing = true;
+                    resizeHandle = e.target.classList[1]; // nw, ne, sw, se
+                } else {
+                    isDragging = true;
+                }
+                
+                startX = e.clientX;
+                startY = e.clientY;
+                startWidth = overlayBox.offsetWidth;
+                startHeight = overlayBox.offsetHeight;
+                startLeft = overlayBox.offsetLeft;
+                startTop = overlayBox.offsetTop;
+                
+                e.preventDefault();
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging && !isResizing) return;
+                
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                const videoRect = video.getBoundingClientRect();
+                const containerRect = video.parentElement.getBoundingClientRect();
+                const videoWidth = videoRect.width;
+                const videoHeight = videoRect.height;
+                
+                if (isDragging) {
+                    let newLeft = startLeft + dx;
+                    let newTop = startTop + dy;
+                    
+                    // Constrain to video bounds
+                    newLeft = Math.max(0, Math.min(newLeft, videoWidth - overlayBox.offsetWidth));
+                    newTop = Math.max(0, Math.min(newTop, videoHeight - overlayBox.offsetHeight));
+                    
+                    overlayBox.style.left = newLeft + 'px';
+                    overlayBox.style.top = newTop + 'px';
+                } else if (isResizing) {
+                    let newWidth = startWidth;
+                    let newHeight = startHeight;
+                    let newLeft = startLeft;
+                    let newTop = startTop;
+                    
+                    if (resizeHandle.includes('e')) newWidth = startWidth + dx;
+                    if (resizeHandle.includes('w')) { newWidth = startWidth - dx; newLeft = startLeft + dx; }
+                    if (resizeHandle.includes('s')) newHeight = startHeight + dy;
+                    if (resizeHandle.includes('n')) { newHeight = startHeight - dy; newTop = startTop + dy; }
+                    
+                    // Maintain minimum size
+                    newWidth = Math.max(50, newWidth);
+                    newHeight = Math.max(50, newHeight);
+                    
+                    // Constrain to video bounds
+                    if (newLeft < 0) { newWidth += newLeft; newLeft = 0; }
+                    if (newTop < 0) { newHeight += newTop; newTop = 0; }
+                    if (newLeft + newWidth > videoWidth) newWidth = videoWidth - newLeft;
+                    if (newTop + newHeight > videoHeight) newHeight = videoHeight - newTop;
+                    
+                    overlayBox.style.width = newWidth + 'px';
+                    overlayBox.style.height = newHeight + 'px';
+                    overlayBox.style.left = newLeft + 'px';
+                    overlayBox.style.top = newTop + 'px';
+                }
+            });
+            
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+                isResizing = false;
+                resizeHandle = null;
+            });
+        }
+
+        async function applyOverlay() {
+            if (!window.overlayData) {
+                showMessage('No overlay data found', 'error');
+                return;
+            }
+            
+            const overlayBox = document.getElementById('overlay-box');
+            const video = document.getElementById('preview-video');
+            
+            if (!video.videoWidth || !video.videoHeight) {
+                showMessage('Video not loaded properly', 'error');
+                return;
+            }
+            
+            const videoRect = video.getBoundingClientRect();
+            
+            // Calculate positions and scale relative to actual video dimensions
+            const videoWidth = video.videoWidth;
+            const videoHeight = video.videoHeight;
+            const displayWidth = videoRect.width;
+            const displayHeight = videoRect.height;
+            
+            // Scale factors to convert from display pixels to video pixels
+            const scaleX = videoWidth / displayWidth;
+            const scaleY = videoHeight / displayHeight;
+            
+            // Convert overlay box position/size from display pixels to video pixels
+            const overlayX = Math.round(overlayBox.offsetLeft * scaleX);
+            const overlayY = Math.round(overlayBox.offsetTop * scaleY);
+            const overlayWidth = Math.round(overlayBox.offsetWidth * scaleX);
+            const overlayHeight = Math.round(overlayBox.offsetHeight * scaleY);
+            
+            // Calculate scale as width ratio (FFmpeg will scale the overlay video to this size)
+            const overlayScale = overlayWidth / videoWidth;
+            
+            console.log('Overlay parameters:', {
+                position: `${overlayX}, ${overlayY}`,
+                size: `${overlayWidth}x${overlayHeight}`,
+                scale: overlayScale,
+                videoSize: `${videoWidth}x${videoHeight}`
+            });
+            
+            // Store overlay data before clearing UI
+            const overlayData = {
+                session: currentSession.name,
+                background_video: window.overlayData.desktopVideo,
+                overlay_video: window.overlayData.cameraVideo,
+                position_x: overlayX.toString(),
+                position_y: overlayY.toString(),
+                overlay_width: overlayWidth.toString(),
+                overlay_height: overlayHeight.toString(),
+                output_name: `overlay_${Date.now()}.mp4`
+            };
+            
+            showLoading(true);
+            cancelOverlay(); // Clear UI now that we have the data
+            
+            try {
+                const response = await fetch('/api/overlay', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(overlayData)
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage(`✅ Overlay created: ${data.output}`, 'success');
+                    await loadSessions();
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    loadSession();
+                } else {
+                    showMessage('Overlay failed: ' + (data.error || 'Unknown error'), 'error');
+                    console.error('Overlay error:', data);
+                }
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+                console.error('Exception in applyOverlay:', error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function cancelOverlay() {
+            document.getElementById('overlay-box').classList.remove('active');
+            document.getElementById('overlay-controls').classList.remove('active');
+            window.overlayData = null;
+        }
+
+        async function recordAudio() {
+            if (!currentSession) {
+                showMessage('Please select a session first', 'error');
+                return;
+            }
+
+            const duration = prompt('How many seconds to record? (5-60)', '10');
+            const seconds = Math.max(5, Math.min(60, parseInt(duration || '10')));
+
+            showMessage(`Recording audio for ${seconds} seconds...`, 'info');
+            showLoading(true);
+            
+            try {
+                const response = await fetch('/api/record-audio', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        session: currentSession.name,
+                        duration: seconds
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage(`✅ Audio recorded: ${data.output}`, 'success');
+                    await loadSessions(); // Refresh session list
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    loadSession(); // Reload current session to show new file
+                } else {
+                    showMessage('Recording failed: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function deleteFile(fileName) {
+            if (!currentSession) {
+                showMessage('No session selected', 'error');
+                return;
+            }
+
+            const confirmed = confirm(`Are you sure you want to delete "${fileName}"? This cannot be undone.`);
+            if (!confirmed) return;
+
+            showLoading(true);
+            
+            try {
+                const response = await fetch('/api/delete-file', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        session: currentSession.name,
+                        filename: fileName
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage(`🗑️ Deleted: ${fileName}`, 'success');
+                    await loadSessions();
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    loadSession();
+                } else {
+                    showMessage('Delete failed: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+    </script>
+</body>
+</html>
