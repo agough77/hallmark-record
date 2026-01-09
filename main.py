@@ -462,9 +462,11 @@ class HallmarkRecordApp(QMainWindow):
             try:
                 has_update, info = self.update_checker.check_for_updates()
                 if has_update:
-                    # Show notification in status bar
+                    # Show notification in status bar using QTimer to ensure it's in main thread
                     version = info.get('version', 'Unknown')
-                    self.status_bar.showMessage(f'⚠️ Update available: v{version} - Click Help > Check for Updates', 15000)
+                    QTimer.singleShot(0, lambda: self.status_bar.showMessage(
+                        f'⚠️ Update available: v{version} - Click Help > Check for Updates', 15000
+                    ))
             except Exception as e:
                 # Silently fail - don't bother user if update check fails
                 pass
