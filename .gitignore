@@ -36,5 +36,9 @@ test_recording/
 *.wav
 *.log
 
+# Release packages (large files - upload to GitHub Releases instead)
+HallmarkRecord_Complete/
+HallmarkRecord_v*.zip
+
 # Keep hallmark-scribble folder
 !hallmark-scribble/

@@ -11,7 +11,7 @@ a = Analysis(
         ('hallmark-scribble/shared/ffmpeg/bin/ffplay.exe', 'ffmpeg/bin'),
         ('hallmark-scribble/shared/ffmpeg/bin/ffprobe.exe', 'ffmpeg/bin'),
     ],
-    hiddenimports=[],
+    hiddenimports=['packaging', 'packaging.version', 'packaging.specifiers', 'packaging.requirements'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

@@ -4,6 +4,7 @@ Records from multiple cameras, microphones, screens, and monitors simultaneously
 """
 import subprocess
 import os
+import sys
 import logging
 import threading
 import time
@@ -31,18 +32,34 @@ class MultiInputRecorder:
         
     def _find_ffmpeg(self) -> str:
         """Find ffmpeg executable"""
-        # Check hallmark-scribble ffmpeg location
+        # Determine the base path (works for both script and PyInstaller bundle)
+        if getattr(sys, 'frozen', False):
+            # Running in PyInstaller bundle
+            base_path = sys._MEIPASS
+        else:
+            # Running as script
+            base_path = os.path.dirname(os.path.dirname(__file__))
+        
+        # Check bundled ffmpeg location (PyInstaller)
+        bundled_ffmpeg = os.path.join(base_path, "ffmpeg", "bin", "ffmpeg.exe")
+        if os.path.exists(bundled_ffmpeg):
+            logging.info(f"Using bundled FFmpeg at: {bundled_ffmpeg}")
+            return bundled_ffmpeg
+        
+        # Check hallmark-scribble ffmpeg location (development)
         hallmark_ffmpeg = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
+            base_path,
             "hallmark-scribble", "shared", "ffmpeg", "bin", "ffmpeg.exe"
         )
         if os.path.exists(hallmark_ffmpeg):
+            logging.info(f"Using hallmark-scribble FFmpeg at: {hallmark_ffmpeg}")
             return hallmark_ffmpeg
         
         # Check if ffmpeg is in PATH
         import shutil
         ffmpeg_in_path = shutil.which("ffmpeg")
         if ffmpeg_in_path:
+            logging.info(f"Using system FFmpeg at: {ffmpeg_in_path}")
             return ffmpeg_in_path
         
         # Return ffmpeg and log warning
@@ -52,14 +69,19 @@ class MultiInputRecorder:
     def list_video_devices(self) -> List[str]:
         """List all available video devices (cameras)"""
         try:
+            logging.info(f"Listing video devices using FFmpeg at: {self.ffmpeg_path}")
+            
+            # Don't use CREATE_NO_WINDOW for device listing - it can interfere
             result = subprocess.run(
                 [self.ffmpeg_path, "-list_devices", "true", "-f", "dshow", "-i", "dummy"],
                 capture_output=True,
                 text=True,
                 encoding='utf-8',
                 errors='ignore',
-                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+                timeout=10  # Add timeout to prevent hanging
             )
+            
+            logging.debug(f"FFmpeg stderr output:\n{result.stderr}")
             
             devices = []
             lines = result.stderr.split('\n')
@@ -78,21 +100,31 @@ class MultiInputRecorder:
             
             logging.info(f"Found {len(devices)} video devices: {devices}")
             return devices
+        except subprocess.TimeoutExpired:
+            logging.error("Timeout while listing video devices")
+            return []
         except Exception as e:
             logging.error(f"Error listing video devices: {e}")
+            import traceback
+            logging.debug(traceback.format_exc())
             return []
     
     def list_audio_devices(self) -> List[str]:
         """List all available audio devices (microphones)"""
         try:
+            logging.info(f"Listing audio devices using FFmpeg at: {self.ffmpeg_path}")
+            
+            # Don't use CREATE_NO_WINDOW for device listing - it can interfere
             result = subprocess.run(
                 [self.ffmpeg_path, "-list_devices", "true", "-f", "dshow", "-i", "dummy"],
                 capture_output=True,
                 text=True,
                 encoding='utf-8',
                 errors='ignore',
-                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+                timeout=10  # Add timeout to prevent hanging
             )
+            
+            logging.debug(f"FFmpeg stderr output:\n{result.stderr}")
             
             devices = []
             lines = result.stderr.split('\n')
@@ -111,8 +143,13 @@ class MultiInputRecorder:
             
             logging.info(f"Found {len(devices)} audio devices: {devices}")
             return devices
+        except subprocess.TimeoutExpired:
+            logging.error("Timeout while listing audio devices")
+            return []
         except Exception as e:
             logging.error(f"Error listing audio devices: {e}")
+            import traceback
+            logging.debug(traceback.format_exc())
             return []
     
     def list_monitors(self) -> List[Dict]:

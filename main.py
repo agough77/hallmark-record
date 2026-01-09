@@ -9,7 +9,8 @@ import webbrowser
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                             QHBoxLayout, QPushButton, QLabel, QListWidget, 
                             QGroupBox, QCheckBox, QMessageBox, QTextEdit,
-                            QStatusBar, QProgressBar, QFileDialog, QLineEdit)
+                            QStatusBar, QProgressBar, QFileDialog, QLineEdit,
+                            QMenuBar, QAction)
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QObject
 from PyQt5.QtGui import QFont, QIcon
 
@@ -17,6 +18,7 @@ from PyQt5.QtGui import QFont, QIcon
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from recorder.multi_input_recorder import MultiInputRecorder
+from updater import UpdateChecker, get_current_version
 
 
 class RecordingSignals(QObject):
@@ -47,13 +49,22 @@ class HallmarkRecordApp(QMainWindow):
         self.signals.recording_started.connect(self.on_recording_started)
         self.signals.recording_stopped.connect(self.on_recording_stopped)
         
+        # Update checker
+        self.update_checker = UpdateChecker()
+        
         self.init_ui()
         self.load_devices()
         
+        # Check for updates on startup (after 2 seconds)
+        QTimer.singleShot(2000, self.check_for_updates_silent)
+        
     def init_ui(self):
         """Initialize the user interface"""
-        self.setWindowTitle('Hallmark Record - Multi-Input Recorder & Editor')
+        self.setWindowTitle(f'Hallmark Record v{get_current_version()} - Multi-Input Recorder & Editor')
         self.setGeometry(100, 100, 1200, 800)
+        
+        # Create menu bar
+        self.create_menu_bar()
         
         # Create central widget and main layout
         central_widget = QWidget()
@@ -257,6 +268,27 @@ class HallmarkRecordApp(QMainWindow):
         
         group.setLayout(layout)
         return group
+    
+    def create_menu_bar(self):
+        """Create the menu bar"""
+        menubar = self.menuBar()
+        
+        # Help menu
+        help_menu = menubar.addMenu('&Help')
+        
+        # Check for updates action
+        update_action = QAction('Check for &Updates', self)
+        update_action.setStatusTip('Check if a new version is available')
+        update_action.triggered.connect(self.check_for_updates_manual)
+        help_menu.addAction(update_action)
+        
+        help_menu.addSeparator()
+        
+        # About action
+        about_action = QAction('&About', self)
+        about_action.setStatusTip('About Hallmark Record')
+        about_action.triggered.connect(self.show_about)
+        help_menu.addAction(about_action)
         
     def select_all_devices(self, list_name):
         """Select all devices in a list"""
@@ -423,6 +455,114 @@ class HallmarkRecordApp(QMainWindow):
     def on_recording_stopped(self):
         """Handle recording stopped"""
         pass
+    
+    def check_for_updates_silent(self):
+        """Check for updates silently on startup"""
+        def check():
+            try:
+                has_update, info = self.update_checker.check_for_updates()
+                if has_update:
+                    # Show notification in status bar
+                    version = info.get('version', 'Unknown')
+                    self.status_bar.showMessage(f'⚠️ Update available: v{version} - Click Help > Check for Updates', 15000)
+            except Exception as e:
+                # Silently fail - don't bother user if update check fails
+                pass
+        
+        # Run in background thread
+        thread = threading.Thread(target=check, daemon=True)
+        thread.start()
+    
+    def check_for_updates_manual(self):
+        """Check for updates when user clicks menu"""
+        self.status_bar.showMessage('Checking for updates...')
+        
+        def check():
+            has_update, info = self.update_checker.check_for_updates()
+            
+            # Update UI in main thread
+            QTimer.singleShot(0, lambda: self.show_update_result(has_update, info))
+        
+        # Run in background thread
+        thread = threading.Thread(target=check, daemon=True)
+        thread.start()
+    
+    def show_update_result(self, has_update, info):
+        """Show update check result to user"""
+        self.status_bar.showMessage('Ready')
+        
+        if has_update:
+            version = info.get('version', 'Unknown')
+            release_date = info.get('release_date', 'Unknown')
+            changelog = info.get('changelog', [])
+            is_critical = info.get('critical_update', False)
+            
+            # Create message
+            msg = f"<h3>Update Available: v{version}</h3>"
+            msg += f"<p><b>Released:</b> {release_date}</p>"
+            
+            if is_critical:
+                msg += "<p><b style='color: red;'>⚠️ This is a critical update!</b></p>"
+            
+            if changelog:
+                msg += "<p><b>What's new:</b></p><ul>"
+                for item in changelog:
+                    msg += f"<li>{item}</li>"
+                msg += "</ul>"
+            
+            msg += "<p>Would you like to download it now?</p>"
+            
+            # Show dialog
+            reply = QMessageBox.question(
+                self,
+                'Update Available',
+                msg,
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes if is_critical else QMessageBox.No
+            )
+            
+            if reply == QMessageBox.Yes:
+                # Open releases page in browser
+                download_url = info.get('download_url', 'https://github.com/agough77/hallmark-record/releases/latest')
+                webbrowser.open(download_url)
+                
+                QMessageBox.information(
+                    self,
+                    'Download Started',
+                    'The download page has been opened in your browser.\\n\\n'
+                    'Please download and install the update, then restart the application.'
+                )
+        
+        elif info is None:
+            # Could not check for updates
+            QMessageBox.warning(
+                self,
+                'Update Check Failed',
+                'Could not check for updates. Please check your internet connection and try again.\\n\\n'
+                'You can also visit:\\n'
+                'https://github.com/agough77/hallmark-record/releases'
+            )
+        else:
+            # Up to date
+            QMessageBox.information(
+                self,
+                'No Updates Available',
+                f'You are running the latest version (v{get_current_version()}).'
+            )
+    
+    def show_about(self):
+        """Show about dialog"""
+        QMessageBox.about(
+            self,
+            'About Hallmark Record',
+            f'<h2>Hallmark Record</h2>'
+            f'<p><b>Version:</b> {get_current_version()}</p>'
+            f'<p>Multi-input recording and editing application</p>'
+            f'<p>Record from multiple cameras, microphones, and screens simultaneously.</p>'
+            f'<p><br></p>'
+            f'<p>For updates and support, visit:<br>'
+            f'<a href="https://github.com/agough77/hallmark-record">github.com/agough77/hallmark-record</a></p>'
+        )
 
 
 def main():

@@ -3,6 +3,7 @@ Multi-Input Video Editor
 Simple interface for editing recordings from multiple sources
 """
 import os
+import sys
 import json
 from flask import Flask, render_template, request, jsonify, send_from_directory
 import subprocess
@@ -19,12 +20,27 @@ FFMPEG_PATH = "ffmpeg"  # Will be resolved
 
 def find_ffmpeg():
     """Find ffmpeg executable"""
+    # Determine the base path (works for both script and PyInstaller bundle)
+    if getattr(sys, 'frozen', False):
+        # Running in PyInstaller bundle
+        base_path = sys._MEIPASS
+    else:
+        # Running as script
+        base_path = os.path.dirname(os.path.dirname(__file__))
+    
+    # Check bundled ffmpeg location (PyInstaller)
+    bundled_ffmpeg = os.path.join(base_path, "ffmpeg", "bin", "ffmpeg.exe")
+    if os.path.exists(bundled_ffmpeg):
+        return bundled_ffmpeg
+    
+    # Check hallmark-scribble ffmpeg location (development)
     hallmark_ffmpeg = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)),
+        base_path,
         "hallmark-scribble", "shared", "ffmpeg", "bin", "ffmpeg.exe"
     )
     if os.path.exists(hallmark_ffmpeg):
         return hallmark_ffmpeg
+    
     return "ffmpeg"
 
 FFMPEG_PATH = find_ffmpeg()
