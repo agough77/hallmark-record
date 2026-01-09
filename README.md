@@ -25,26 +25,65 @@ A professional multi-input recording and editing application that allows you to 
 
 ## Installation
 
-### Prerequisites
+### Option 1: Installer Package (Recommended)
+
+**The easiest way to install Hallmark Record with all dependencies included:**
+
+1. Download the latest installer from the [Releases page](https://github.com/agough77/hallmark-record/releases)
+2. Run `HallmarkRecord_Setup_v1.0.0.exe`
+3. Follow the installation wizard
+4. Launch "Hallmark Recorder" or "Hallmark Editor" from the Start Menu or Desktop shortcuts
+
+**What's included:**
+- Standalone executables (no Python installation required)
+- All dependencies bundled (PyQt5, Flask, pywin32)
+- FFmpeg binaries included
+- Automatic updates via built-in updater
+- Desktop shortcuts and Start Menu integration
+
+### Option 2: Manual Installation (For Developers)
+
+**Prerequisites:**
 1. **Python 3.8 or higher**
-2. **FFmpeg**: The application uses FFmpeg from the cloned hallmark-scribble repository, or you can install it separately:
-   - Download from: https://ffmpeg.org/download.html
-   - Add to system PATH or place in application directory
+2. **FFmpeg**: Included in the hallmark-scribble subfolder
 
-### Setup Steps
+**Setup Steps:**
 
-1. **Clone or navigate to the project directory**:
+1. **Clone the repository**:
    ```bash
-   cd "c:\Users\AGough\Hallmark University\IT Services - Documents\Scripts + Tools\Hallmark Record"
+   git clone https://github.com/agough77/hallmark-record.git
+   cd hallmark-record
    ```
 
 2. **Install Python dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
+   Or run the provided installer:
+   ```bash
+   install.bat
+   ```
 
 3. **Verify FFmpeg is available**:
    The application will automatically use FFmpeg from the hallmark-scribble repository if present.
+
+### Building Your Own Installer
+
+To create the installer package yourself:
+
+1. **Install PyInstaller**:
+   ```bash
+   pip install pyinstaller
+   ```
+
+2. **Download Inno Setup** from https://jrsoftware.org/isinfo.php
+
+3. **Run the build script**:
+   ```bash
+   build_installer.bat
+   ```
+
+4. **Find the installer** in the `installer_output` folder
 
 ## Usage
 

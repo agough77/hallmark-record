@@ -8,8 +8,16 @@ env/
 venv/
 ENV/
 *.egg-info/
+
+# PyInstaller
 dist/
 build/
+*.spec.bak
+*.egg
+*.manifest
+
+# Installer outputs
+installer_output/
 
 # IDEs
 .vscode/
