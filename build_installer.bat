@@ -44,9 +44,8 @@ if errorlevel 1 (
 echo.
 
 echo [4/5] Checking for Inno Setup...
-set "INNO_PATH=C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-if not exist "%INNO_PATH%" (
-    echo [WARNING] Inno Setup not found at: %INNO_PATH%
+if not exist "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" (
+    echo [WARNING] Inno Setup not found
     echo.
     echo Please install Inno Setup from: https://jrsoftware.org/isinfo.php
     echo After installing, run this script again to create the installer.
@@ -60,7 +59,7 @@ if not exist "%INNO_PATH%" (
 )
 
 echo [5/5] Creating installer with Inno Setup...
-"%INNO_PATH%" installer.iss
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 if errorlevel 1 (
     echo [ERROR] Failed to create installer
     pause
