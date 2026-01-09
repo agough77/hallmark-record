@@ -10,7 +10,15 @@ import subprocess
 import logging
 from datetime import datetime
 
-app = Flask(__name__)
+# Determine template folder location (works for both script and PyInstaller bundle)
+if getattr(sys, 'frozen', False):
+    # Running in PyInstaller bundle - templates are in _MEIPASS
+    template_folder = os.path.join(sys._MEIPASS, 'templates')
+else:
+    # Running as script - templates are in editor/templates
+    template_folder = os.path.join(os.path.dirname(__file__), 'templates')
+
+app = Flask(__name__, template_folder=template_folder)
 logging.basicConfig(level=logging.INFO)
 
 # Configuration - Save to user's Downloads folder
