@@ -114,7 +114,7 @@ python main.py
 
 1. **Open Editor**:
    - Click "✂️ Open Editor" in the main application
-   - The web-based editor will open in your default browser at http://localhost:5000
+   - The web-based editor will open in your default browser at http://localhost:5500
 
 2. **Select Session**:
    - In the "Sessions" tab, you'll see all your recording sessions
@@ -219,7 +219,7 @@ The web-based editor provides:
 - Try recording from fewer devices simultaneously
 
 ### Editor Won't Open
-- Check if port 5000 is already in use
+- Check if port 5500 is already in use
 - Ensure Flask is properly installed: `pip install Flask`
 - Check the application log for error messages
 

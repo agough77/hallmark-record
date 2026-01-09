@@ -48,7 +48,7 @@ Your multi-input recording and editing application is now ready! Here's everythi
 1. Click "Open Editor" in the recorder app
    OR
    Double-click **START_EDITOR.bat**
-2. Browser opens at http://localhost:5000
+2. Browser opens at http://localhost:5500
 3. Browse sessions, edit, merge, and export!
 
 ## 📂 File Organization
@@ -165,7 +165,7 @@ This was extended to support:
 - Check available disk space
 
 ### Editor won't open?
-- Check if port 5000 is in use
+- Check if port 5500 is in use
 - Run START_EDITOR.bat manually
 - Check firewall settings
 

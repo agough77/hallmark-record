@@ -14,7 +14,7 @@ Double-click `INSTALL.bat` to install all required Python packages.
 
 ### Step 3: Edit Your Recordings
 1. In the main app, click "✂️ Open Editor" (or run `START_EDITOR.bat`)
-2. Browser opens at http://localhost:5000
+2. Browser opens at http://localhost:5500
 3. Select your session from the list
 4. Use the tabs to:
    - **Edit**: Trim individual videos
@@ -83,7 +83,7 @@ Each session contains:
 - Use faster storage (SSD)
 
 **Editor won't open?**
-- Check if port 5000 is in use
+- Check if port 5500 is in use
 - Run START_EDITOR.bat manually
 - Check firewall settings
 

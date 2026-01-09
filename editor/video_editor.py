@@ -610,5 +610,5 @@ if __name__ == '__main__':
     print("Starting Multi-Input Video Editor...")
     print(f"Outputs directory: {OUTPUTS_DIR}")
     print(f"FFmpeg path: {FFMPEG_PATH}")
-    print("\nEditor will be available at: http://localhost:5000")
-    app.run(debug=True, port=5000)
+    print("\nEditor will be available at: http://localhost:5500")
+    app.run(debug=True, port=5500)

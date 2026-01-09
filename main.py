@@ -367,9 +367,9 @@ class HallmarkRecordApp(QMainWindow):
             editor_thread.start()
             
             # Wait a moment for server to start
-            QTimer.singleShot(2000, lambda: webbrowser.open('http://localhost:5000'))
+            QTimer.singleShot(2000, lambda: webbrowser.open('http://localhost:5500'))
             
-            self.log('Editor opened in browser at http://localhost:5000')
+            self.log('Editor opened in browser at http://localhost:5500')
             
         except Exception as e:
             self.log(f'Error opening editor: {str(e)}')
@@ -379,7 +379,7 @@ class HallmarkRecordApp(QMainWindow):
         """Start the Flask editor server"""
         try:
             from editor.video_editor import app
-            app.run(debug=False, port=5000, use_reloader=False)
+            app.run(debug=False, port=5500, use_reloader=False)
         except Exception as e:
             self.signals.error_occurred.emit(f'Error starting editor server: {str(e)}')
     

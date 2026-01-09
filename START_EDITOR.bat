@@ -30,13 +30,21 @@ if errorlevel 1 (
 )
 
 echo.
-echo Editor will be available at: http://localhost:5000
+echo Editor will be available at: http://localhost:5500
 echo Press Ctrl+C to stop the server
 echo.
 
 REM Run the editor
-cd editor
-python video_editor.py
+start "" cmd /c "cd editor && python video_editor.py"
+
+REM Wait for server to start and open browser
+timeout /t 3 /nobreak >nul
+start http://localhost:5500
+
+echo.
+echo Editor is starting...
+echo If the browser doesn't open automatically, navigate to http://localhost:5500
+pause
 
 if errorlevel 1 (
     echo.
