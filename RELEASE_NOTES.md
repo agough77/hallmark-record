@@ -1,3 +1,19 @@
+# Hallmark Record v1.0.1 Release Notes
+
+## 🔧 Port Update Release
+
+Changed default port from 5000 to 5500 to avoid conflicts with hallmark-scribble application.
+
+### What Changed
+- **Port**: Now runs on `http://localhost:5500` instead of `5000`
+- **All documentation updated**: README, batch files, and help docs reflect new port
+- **Full rebuild**: Both Recorder and Editor executables rebuilt with updated port
+
+### Installation
+Download `HallmarkRecord_v1.0.1_Complete.zip` (536 MB) - includes everything you need!
+
+---
+
 # Hallmark Record v1.0.0 Release Notes
 
 ## 🎉 Initial Release
