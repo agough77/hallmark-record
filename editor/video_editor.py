@@ -356,14 +356,12 @@ def timeline_editor():
 
 @app.route('/api/export-timeline', methods=['POST'])
 def export_timeline():
-    """Export project from timeline"""
+    """Export project from timeline with text overlays and transitions"""
     try:
         data = request.json
         session = data['session']
         timeline = data['timeline']
         
-        # For now, just merge all clips in order
-        # In future, this would handle multi-track composition
         session_path = os.path.join(OUTPUTS_DIR, session)
         output_name = f"timeline_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
         output_path = os.path.join(session_path, output_name)
@@ -374,26 +372,149 @@ def export_timeline():
             for clip in clips:
                 clip_path = os.path.join(session_path, clip['file'])
                 if os.path.exists(clip_path) and clip_path.endswith('.mp4'):
-                    all_clips.append(clip_path)
+                    all_clips.append({
+                        'path': clip_path,
+                        'file': clip['file'],
+                        'trim_start': clip.get('trim_start', 0),
+                        'trim_end': clip.get('trim_end')
+                    })
         
         if not all_clips:
             return jsonify({'success': False, 'error': 'No video clips in timeline'}), 400
         
-        # Create concat file
-        concat_file = os.path.join(session_path, 'timeline_concat.txt')
-        with open(concat_file, 'w') as f:
-            for clip_path in all_clips:
-                f.write(f"file '{os.path.basename(clip_path)}'\n")
+        # Check for text overlays and transitions
+        text_overlays = [item for item in timeline.get('items', []) if item.get('type') == 'text']
+        transitions = [item for item in timeline.get('items', []) if item.get('type') == 'transition']
         
-        # Concatenate videos
-        command = [
-            FFMPEG_PATH, '-y',
-            '-f', 'concat',
-            '-safe', '0',
-            '-i', concat_file,
-            '-c', 'copy',
-            output_path
-        ]
+        # Process videos with trimming if needed
+        processed_clips = []
+        temp_files = []
+        
+        for i, clip in enumerate(all_clips):
+            if clip['trim_start'] > 0 or clip['trim_end']:
+                # Need to trim this clip first
+                temp_output = os.path.join(session_path, f'temp_trim_{i}.mp4')
+                trim_cmd = [FFMPEG_PATH, '-y', '-i', clip['path']]
+                
+                if clip['trim_start'] > 0:
+                    trim_cmd.extend(['-ss', str(clip['trim_start'])])
+                
+                if clip['trim_end']:
+                    duration = clip['trim_end'] - clip['trim_start']
+                    trim_cmd.extend(['-t', str(duration)])
+                
+                trim_cmd.extend(['-c', 'copy', temp_output])
+                
+                result = subprocess.run(
+                    trim_cmd,
+                    capture_output=True,
+                    text=True,
+                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+                )
+                
+                if result.returncode == 0:
+                    processed_clips.append(temp_output)
+                    temp_files.append(temp_output)
+                else:
+                    # If trim fails, use original
+                    processed_clips.append(clip['path'])
+            else:
+                processed_clips.append(clip['path'])
+        
+        # Build filter complex for text overlays and transitions
+        filter_parts = []
+        current_input = 0
+        
+        # If we have transitions, build xfade filters
+        if transitions and len(processed_clips) > 1:
+            # Sort transitions by position
+            transitions_sorted = sorted(transitions, key=lambda x: x.get('afterClip', 0))
+            
+            # Build xfade chain
+            prev_output = f'[{current_input}:v]'
+            for trans_idx, transition in enumerate(transitions_sorted):
+                next_idx = current_input + 1
+                if next_idx < len(processed_clips):
+                    trans_type = transition.get('transitionType', 'fade')
+                    trans_duration = transition.get('duration', 1)
+                    
+                    # Map transition types to ffmpeg xfade types
+                    xfade_type = {
+                        'fade': 'fade',
+                        'dissolve': 'dissolve',
+                        'wipe': 'wipeleft'
+                    }.get(trans_type, 'fade')
+                    
+                    output_label = f'[v{trans_idx}]' if trans_idx < len(transitions_sorted) - 1 else '[vout]'
+                    filter_parts.append(f'{prev_output}[{next_idx}:v]xfade=transition={xfade_type}:duration={trans_duration}:offset=0{output_label}')
+                    prev_output = output_label
+                    current_input = next_idx
+        
+        # Add text overlays
+        if text_overlays:
+            base_input = '[vout]' if transitions else '[0:v]'
+            for text_idx, text_item in enumerate(text_overlays):
+                text = text_item.get('text', '').replace("'", "\\'")
+                font_size = text_item.get('fontSize', 48)
+                font_color = text_item.get('fontColor', 'white')
+                bg_color = text_item.get('backgroundColor', 'black@0.5')
+                position_x = text_item.get('position', {}).get('x', 50)
+                position_y = text_item.get('position', {}).get('y', 50)
+                start_time = text_item.get('start', 0)
+                duration = text_item.get('duration', 5)
+                
+                # Convert percentage to pixel coordinates
+                x_expr = f'(w-text_w)*{position_x/100}'
+                y_expr = f'(h-text_h)*{position_y/100}'
+                
+                output_label = f'[tout{text_idx}]' if text_idx < len(text_overlays) - 1 else '[final]'
+                
+                filter_parts.append(
+                    f"{base_input}drawtext=text='{text}':fontsize={font_size}:fontcolor={font_color}:"
+                    f"box=1:boxcolor={bg_color}:x={x_expr}:y={y_expr}:"
+                    f"enable='between(t,{start_time},{start_time + duration})'{output_label}"
+                )
+                base_input = output_label
+        
+        # Create concat file or use filter complex
+        if not filter_parts:
+            # Simple concatenation
+            concat_file = os.path.join(session_path, 'timeline_concat.txt')
+            with open(concat_file, 'w') as f:
+                for clip_path in processed_clips:
+                    f.write(f"file '{os.path.basename(clip_path)}'\n")
+            
+            command = [
+                FFMPEG_PATH, '-y',
+                '-f', 'concat',
+                '-safe', '0',
+                '-i', concat_file,
+                '-c', 'copy',
+                output_path
+            ]
+        else:
+            # Complex filtering with transitions/text
+            command = [FFMPEG_PATH, '-y']
+            
+            # Add all input files
+            for clip_path in processed_clips:
+                command.extend(['-i', clip_path])
+            
+            # Add filter complex
+            filter_complex = ';'.join(filter_parts)
+            command.extend(['-filter_complex', filter_complex])
+            
+            # Map the final output
+            final_label = '[final]' if text_overlays else '[vout]'
+            command.extend(['-map', final_label])
+            
+            # Encoding settings
+            command.extend([
+                '-c:v', 'libx264',
+                '-preset', 'fast',
+                '-crf', '23',
+                output_path
+            ])
         
         logging.info(f"Exporting timeline: {' '.join(command)}")
         
@@ -404,17 +525,29 @@ def export_timeline():
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
         )
         
-        # Clean up
+        # Clean up temp files
+        for temp_file in temp_files:
+            try:
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
+            except:
+                pass
+        
+        concat_file = os.path.join(session_path, 'timeline_concat.txt')
         if os.path.exists(concat_file):
-            os.remove(concat_file)
+            try:
+                os.remove(concat_file)
+            except:
+                pass
         
         if result.returncode == 0:
             return jsonify({
                 'success': True,
                 'output': output_name,
-                'message': 'Timeline exported successfully'
+                'message': 'Timeline exported successfully with effects'
             })
         else:
+            logging.error(f"FFmpeg error: {result.stderr}")
             return jsonify({
                 'success': False,
                 'error': result.stderr

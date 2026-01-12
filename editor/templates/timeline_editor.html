@@ -754,13 +754,15 @@
                 video1: [],
                 video2: [],
                 audio1: []
-            }
+            },
+            items: []  // For text overlays and transitions
         };
         let selectedClip = null;
         let clipCounter = 0;
         let markInTime = null;
         let markOutTime = null;
         let timelineZoom = 1; // Zoom level (pixels per second)
+        let currentTime = 0; // Current playback position
 
         console.log('✅ Timeline Editor Script Loaded!');
 
@@ -1314,11 +1316,74 @@
         }
 
         function addText() {
-            showMessage('Text overlay functionality coming soon', 'success');
+            const text = prompt('Enter text to add:');
+            if (!text) return;
+            
+            const duration = parseFloat(prompt('Duration (seconds):', '5'));
+            if (isNaN(duration) || duration <= 0) {
+                showMessage('Invalid duration', 'error');
+                return;
+            }
+            
+            const video = document.getElementById('preview-video');
+            const startTime = video.currentTime || 0;
+            
+            const textOverlay = {
+                id: Date.now(),
+                type: 'text',
+                text: text,
+                start: startTime,
+                duration: duration,
+                fontSize: 48,
+                fontColor: '#FFFFFF',
+                backgroundColor: 'black@0.5',
+                position: { x: 50, y: 50 } // center percentage
+            };
+            
+            timeline.items.push(textOverlay);
+            showMessage(`Text overlay added at ${formatTime(startTime)} for ${duration}s`, 'success');
         }
 
         function addTransition() {
-            showMessage('Transition functionality coming soon', 'success');
+            // Count video clips
+            const totalClips = timeline.tracks.video1.length + timeline.tracks.video2.length;
+            
+            if (totalClips < 2) {
+                showMessage('Need at least 2 clips to add transition', 'error');
+                return;
+            }
+            
+            const type = prompt('Transition type (fade, dissolve, wipe):', 'fade');
+            if (!type) return;
+            
+            const validTypes = ['fade', 'dissolve', 'wipe'];
+            if (!validTypes.includes(type.toLowerCase())) {
+                showMessage('Invalid transition type. Use: fade, dissolve, or wipe', 'error');
+                return;
+            }
+            
+            const duration = parseFloat(prompt('Transition duration (seconds):', '1'));
+            if (isNaN(duration) || duration <= 0) {
+                showMessage('Invalid duration', 'error');
+                return;
+            }
+            
+            const clipIndex = parseInt(prompt(`Add transition after clip number (1-${totalClips}):`));
+            if (isNaN(clipIndex) || clipIndex < 1 || clipIndex > totalClips) {
+                showMessage('Invalid clip number', 'error');
+                return;
+            }
+            
+            const transition = {
+                id: Date.now(),
+                type: 'transition',
+                transitionType: type.toLowerCase(),
+                duration: duration,
+                afterClip: clipIndex - 1
+            };
+            
+            timeline.items.push(transition);
+            showMessage(`${type} transition added after clip ${clipIndex}`, 'success');
         }
 
         function togglePlay() {

@@ -7,11 +7,12 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
+        ('editor/templates', 'templates'),
         ('hallmark-scribble/shared/ffmpeg/bin/ffmpeg.exe', 'ffmpeg/bin'),
         ('hallmark-scribble/shared/ffmpeg/bin/ffplay.exe', 'ffmpeg/bin'),
         ('hallmark-scribble/shared/ffmpeg/bin/ffprobe.exe', 'ffmpeg/bin'),
     ],
-    hiddenimports=['packaging', 'packaging.version', 'packaging.specifiers', 'packaging.requirements'],
+    hiddenimports=['packaging', 'packaging.version', 'packaging.specifiers', 'packaging.requirements', 'flask', 'jinja2'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
