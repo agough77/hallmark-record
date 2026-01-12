@@ -385,6 +385,7 @@ def export_timeline():
         # Check for text overlays and transitions
         text_overlays = [item for item in timeline.get('items', []) if item.get('type') == 'text']
         transitions = [item for item in timeline.get('items', []) if item.get('type') == 'transition']
+        background_music = next((item for item in timeline.get('items', []) if item.get('type') == 'background_music'), None)
         
         # Process videos with trimming if needed
         processed_clips = []
@@ -477,8 +478,8 @@ def export_timeline():
                 base_input = output_label
         
         # Create concat file or use filter complex
-        if not filter_parts:
-            # Simple concatenation
+        if not filter_parts and not background_music:
+            # Simple concatenation without effects
             concat_file = os.path.join(session_path, 'timeline_concat.txt')
             with open(concat_file, 'w') as f:
                 for clip_path in processed_clips:
@@ -493,26 +494,70 @@ def export_timeline():
                 output_path
             ]
         else:
-            # Complex filtering with transitions/text
+            # Complex filtering with transitions/text/music
             command = [FFMPEG_PATH, '-y']
             
             # Add all input files
             for clip_path in processed_clips:
                 command.extend(['-i', clip_path])
             
-            # Add filter complex
-            filter_complex = ';'.join(filter_parts)
-            command.extend(['-filter_complex', filter_complex])
+            # Add background music as input if specified
+            music_input_index = None
+            if background_music:
+                music_path = os.path.join(session_path, background_music['file'])
+                if os.path.exists(music_path):
+                    command.extend(['-i', music_path])
+                    music_input_index = len(processed_clips)
             
-            # Map the final output
-            final_label = '[final]' if text_overlays else '[vout]'
-            command.extend(['-map', final_label])
+            # Build filter complex
+            filter_list = filter_parts.copy() if filter_parts else []
+            
+            # Add audio mixing if background music is present
+            if music_input_index is not None:
+                volume = background_music.get('volume', 0.3)
+                should_loop = background_music.get('loop', False)
+                
+                # Get video output label
+                video_output = '[final]' if text_overlays else ('[vout]' if transitions else '[0:v]')
+                
+                # Mix original audio with background music
+                # [0:a] is from first video, [music_input:a] is background music
+                if should_loop:
+                    # Loop the music and mix with original audio
+                    filter_list.append(
+                        f'[{music_input_index}:a]aloop=loop=-1:size=2e+09[music];'
+                        f'[0:a][music]amix=inputs=2:weights=1 {volume}[aout]'
+                    )
+                else:
+                    # Mix without looping
+                    filter_list.append(
+                        f'[0:a][{music_input_index}:a]amix=inputs=2:weights=1 {volume}[aout]'
+                    )
+            
+            # Join all filters
+            if filter_list:
+                filter_complex = ';'.join(filter_list)
+                command.extend(['-filter_complex', filter_complex])
+            
+            # Map the outputs
+            final_video_label = '[final]' if text_overlays else ('[vout]' if transitions else '[0:v]')
+            command.extend(['-map', final_video_label])
+            
+            # Map audio output
+            if music_input_index is not None:
+                command.extend(['-map', '[aout]'])
+            else:
+                # Use original audio
+                command.extend(['-map', '0:a?'])
             
             # Encoding settings
             command.extend([
                 '-c:v', 'libx264',
                 '-preset', 'fast',
                 '-crf', '23',
+                '-c:a', 'aac',
+                '-b:a', '192k',
+                '-shortest',  # Stop when shortest stream ends
                 output_path
             ])
         

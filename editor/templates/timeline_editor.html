@@ -648,6 +648,7 @@
                 </select>
                 <button class="btn btn-secondary" onclick="createOverlay()">📹 Overlay Camera</button>
                 <button class="btn btn-secondary" onclick="recordAudio()">🎤 Record Audio</button>
+                <button class="btn btn-secondary" onclick="addBackgroundMusic()">🎵 Background Music</button>
                 <button class="btn btn-secondary" onclick="addText()">➕ Text</button>
                 <button class="btn btn-secondary" onclick="addTransition()">✨ Transition</button>
                 <button class="btn btn-primary" onclick="exportProject()">💾 Export</button>
@@ -1384,6 +1385,56 @@
             
             timeline.items.push(transition);
             showMessage(`${type} transition added after clip ${clipIndex}`, 'success');
+        }
+
+        function addBackgroundMusic() {
+            if (!currentSession) {
+                showMessage('No session selected', 'error');
+                return;
+            }
+            
+            // Get audio files from current session
+            const audioFiles = currentSession.files.filter(f => f.type === 'audio');
+            
+            if (audioFiles.length === 0) {
+                showMessage('No audio files found in session. Use 🎤 Record Audio first.', 'error');
+                return;
+            }
+            
+            // Create selection dialog
+            let fileOptions = audioFiles.map((f, i) => `${i + 1}. ${f.name}`).join('\n');
+            const selection = parseInt(prompt(`Select background music:\n${fileOptions}\n\nEnter number:`));
+            
+            if (isNaN(selection) || selection < 1 || selection > audioFiles.length) {
+                showMessage('Invalid selection', 'error');
+                return;
+            }
+            
+            const selectedFile = audioFiles[selection - 1];
+            
+            // Get volume level
+            const volume = parseFloat(prompt('Background music volume (0.0 to 1.0):', '0.3'));
+            if (isNaN(volume) || volume < 0 || volume > 1) {
+                showMessage('Invalid volume. Use 0.0 to 1.0', 'error');
+                return;
+            }
+            
+            // Ask if should loop
+            const shouldLoop = confirm('Loop music if video is longer?');
+            
+            const backgroundMusic = {
+                id: Date.now(),
+                type: 'background_music',
+                file: selectedFile.name,
+                volume: volume,
+                loop: shouldLoop
+            };
+            
+            // Remove any existing background music
+            timeline.items = timeline.items.filter(item => item.type !== 'background_music');
+            
+            timeline.items.push(backgroundMusic);
+            showMessage(`🎵 Background music added: ${selectedFile.name} (volume: ${volume})`, 'success');
         }
 
         function togglePlay() {
