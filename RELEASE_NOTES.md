@@ -1,3 +1,31 @@
+# Hallmark Record v1.0.3 Release Notes
+
+## 🔗 Navigation Enhancement Release
+
+Added seamless navigation between Recorder and Editor applications with a custom URL protocol handler.
+
+### What's New
+- **"Back to Recorder" Button**: Prominent red button in Timeline Editor for easy navigation back to recording app
+- **Custom URL Protocol**: `hallmark-recorder://` protocol registered for browser-to-app launching
+- **Smart Instance Management**: Single-instance check prevents duplicate windows - brings existing window to front if already running
+- **Works Offline**: Navigation button works even without web server running (saved HTML files)
+
+### Technical Improvements
+- Added `psutil` dependency for process management
+- Enhanced installer with Windows registry entries for protocol handler
+- Improved window activation using win32gui APIs
+
+### Installation
+Use the Windows installer: `HallmarkRecord_Setup_v1.0.3.exe` (212 MB)
+
+The installer will:
+- Install both Recorder and Editor applications
+- Register the custom protocol handler
+- Create Start Menu shortcuts
+- Optional desktop icons
+
+---
+
 # Hallmark Record v1.0.1 Release Notes
 
 ## 🔧 Port Update Release
