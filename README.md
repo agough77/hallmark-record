@@ -30,7 +30,7 @@ A professional multi-input recording and editing application that allows you to 
 **The easiest way to install Hallmark Record with all dependencies included:**
 
 1. Download the latest installer from the [Releases page](https://github.com/agough77/hallmark-record/releases)
-2. Run `HallmarkRecord_Setup_v1.0.0.exe`
+2. Run `HallmarkRecord_Setup_v1.0.3.exe`
 3. Follow the installation wizard
 4. Launch "Hallmark Recorder" or "Hallmark Editor" from the Start Menu or Desktop shortcuts
 

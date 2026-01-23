@@ -55,6 +55,13 @@ Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\Hallmark Editor"; 
 [Run]
 Filename: "{app}\Recorder\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
+[Registry]
+; Register custom URL protocol for launching Recorder from browser
+Root: HKCU; Subkey: "Software\Classes\hallmark-recorder"; ValueType: string; ValueName: ""; ValueData: "URL:Hallmark Recorder Protocol"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\hallmark-recorder"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
+Root: HKCU; Subkey: "Software\Classes\hallmark-recorder\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\Recorder\{#MyAppExeName},0"
+Root: HKCU; Subkey: "Software\Classes\hallmark-recorder\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\Recorder\{#MyAppExeName}"""
+
 [Code]
 function GetUninstallString(): String;
 var

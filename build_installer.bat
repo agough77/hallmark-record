@@ -77,7 +77,7 @@ echo - dist\Hallmark Editor\Hallmark Editor.exe
 echo.
 if exist installer_output (
     echo Installer package:
-    echo - installer_output\HallmarkRecord_Setup_v1.0.0.exe
+    echo - installer_output\HallmarkRecord_Setup_v1.0.3.exe
     echo.
 )
 echo You can now distribute the installer to users.

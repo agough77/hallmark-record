@@ -9,6 +9,11 @@ from flask import Flask, render_template, request, jsonify, send_from_directory
 import subprocess
 import logging
 from datetime import datetime
+import time
+import psutil
+import win32gui
+import win32con
+import win32process
 
 # Determine template folder location (works for both script and PyInstaller bundle)
 if getattr(sys, 'frozen', False):
@@ -101,6 +106,42 @@ def preview_file(session_name, filename):
     except Exception as e:
         logging.error(f"Error previewing file: {e}")
         return jsonify({'error': str(e)}), 404
+
+@app.route('/api/upload', methods=['POST'])
+def upload_video():
+    """Upload a video file to a session"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        session = request.form.get('session')
+        
+        if not session:
+            return jsonify({'success': False, 'error': 'No session specified'}), 400
+        
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        # Create session directory if it doesn't exist
+        session_path = os.path.join(OUTPUTS_DIR, session)
+        os.makedirs(session_path, exist_ok=True)
+        
+        # Save the file
+        file_path = os.path.join(session_path, file.filename)
+        file.save(file_path)
+        
+        logging.info(f"Uploaded file: {file.filename} to session: {session}")
+        
+        return jsonify({
+            'success': True,
+            'filename': file.filename,
+            'message': f'File uploaded successfully to {session}'
+        })
+        
+    except Exception as e:
+        logging.error(f"Error uploading file: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/trim', methods=['POST'])
 def trim_video():
@@ -361,9 +402,9 @@ def export_timeline():
         data = request.json
         session = data['session']
         timeline = data['timeline']
+        output_name = data.get('output_name', f"timeline_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4")
         
         session_path = os.path.join(OUTPUTS_DIR, session)
-        output_name = f"timeline_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
         output_path = os.path.join(session_path, output_name)
         
         # Collect all video clips from tracks
@@ -386,6 +427,7 @@ def export_timeline():
         text_overlays = [item for item in timeline.get('items', []) if item.get('type') == 'text']
         transitions = [item for item in timeline.get('items', []) if item.get('type') == 'transition']
         background_music = next((item for item in timeline.get('items', []) if item.get('type') == 'background_music'), None)
+        watermark = timeline.get('watermark')  # Get watermark configuration
         
         # Process videos with trimming if needed
         processed_clips = []
@@ -477,8 +519,36 @@ def export_timeline():
                 )
                 base_input = output_label
         
+        # Add watermark overlay
+        watermark_input_index = None
+        if watermark and watermark.get('filename'):
+            watermark_path = os.path.join(session_path, watermark['filename'])
+            if os.path.exists(watermark_path):
+                # We'll add watermark as an input later
+                watermark_input_index = len(processed_clips)
+                if background_music:
+                    watermark_input_index += 1  # Account for music input
+                
+                # Determine position
+                position = watermark.get('position', 'top_right')
+                opacity = watermark.get('opacity', 0.7)
+                
+                position_map = {
+                    'top_left': 'x=10:y=10',
+                    'top_right': 'x=W-w-10:y=10',
+                    'bottom_left': 'x=10:y=H-h-10',
+                    'bottom_right': 'x=W-w-10:y=H-h-10',
+                    'center': 'x=(W-w)/2:y=(H-h)/2'
+                }
+                
+                overlay_pos = position_map.get(position, 'x=W-w-10:y=10')
+                
+                # Add watermark to the filter chain
+                base_input = '[final]' if text_overlays else ('[vout]' if transitions else '[0:v]')
+                filter_parts.append(f'{base_input}[{watermark_input_index}:v]overlay={overlay_pos}:format=auto:alpha={opacity}[watermarked]')
+        
         # Create concat file or use filter complex
-        if not filter_parts and not background_music:
+        if not filter_parts and not background_music and not watermark:
             # Simple concatenation without effects
             concat_file = os.path.join(session_path, 'timeline_concat.txt')
             with open(concat_file, 'w') as f:
@@ -494,7 +564,7 @@ def export_timeline():
                 output_path
             ]
         else:
-            # Complex filtering with transitions/text/music
+            # Complex filtering with transitions/text/music/watermark
             command = [FFMPEG_PATH, '-y']
             
             # Add all input files
@@ -508,6 +578,12 @@ def export_timeline():
                 if os.path.exists(music_path):
                     command.extend(['-i', music_path])
                     music_input_index = len(processed_clips)
+            
+            # Add watermark image as input if specified
+            if watermark_input_index is not None and watermark:
+                watermark_path = os.path.join(session_path, watermark['filename'])
+                if os.path.exists(watermark_path):
+                    command.extend(['-i', watermark_path])
             
             # Build filter complex
             filter_list = filter_parts.copy() if filter_parts else []
@@ -540,7 +616,10 @@ def export_timeline():
                 command.extend(['-filter_complex', filter_complex])
             
             # Map the outputs
-            final_video_label = '[final]' if text_overlays else ('[vout]' if transitions else '[0:v]')
+            if watermark_input_index is not None:
+                final_video_label = '[watermarked]'
+            else:
+                final_video_label = '[final]' if text_overlays else ('[vout]' if transitions else '[0:v]')
             command.extend(['-map', final_video_label])
             
             # Map audio output
@@ -672,6 +751,40 @@ def overlay_videos():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/audio-devices')
+def get_audio_devices():
+    """Get list of audio input devices"""
+    try:
+        # Use ffmpeg to list devices
+        command = [
+            FFMPEG_PATH,
+            '-f', 'dshow',
+            '-list_devices', 'true',
+            '-i', 'dummy'
+        ]
+        
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+        )
+        
+        # Parse device names from error output
+        import re
+        devices = []
+        for line in result.stderr.split('\n'):
+            if '(audio)' in line.lower():
+                match = re.search(r'"([^"]+)"', line)
+                if match:
+                    device_name = match.group(1)
+                    devices.append({'name': device_name, 'type': 'audio'})
+        
+        return jsonify({'success': True, 'devices': devices})
+    except Exception as e:
+        logging.error(f"Error listing audio devices: {e}")
+        return jsonify({'success': False, 'error': str(e), 'devices': []})
+
 @app.route('/api/record-audio', methods=['POST'])
 def record_audio():
     """Record new audio from microphone"""
@@ -784,23 +897,348 @@ def delete_file():
         logging.error(f"Error deleting file: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/upload-to-canvas', methods=['POST'])
+def upload_to_canvas():
+    """Upload video to Canvas Studio"""
+    try:
+        data = request.json
+        session = data['session']
+        filename = data['filename']
+        canvas_url = data['canvas_url']
+        canvas_token = data['canvas_token']
+        title = data['title']
+        description = data.get('description', '')
+        
+        session_path = os.path.join(OUTPUTS_DIR, session)
+        file_path = os.path.join(session_path, filename)
+        
+        if not os.path.exists(file_path):
+            return jsonify({'success': False, 'error': 'File not found'}), 404
+        
+        # Canvas Studio API endpoint
+        # Note: Canvas Studio uses a different API than regular Canvas
+        # This is a simplified implementation - actual Canvas Studio API may differ
+        api_url = f"{canvas_url.rstrip('/')}/api/v1/studio/media"
+        
+        headers = {
+            'Authorization': f'Bearer {canvas_token}'
+        }
+        
+        # Upload file
+        with open(file_path, 'rb') as video_file:
+            files = {
+                'file': (filename, video_file, 'video/mp4')
+            }
+            upload_data = {
+                'title': title,
+                'description': description
+            }
+            
+            import requests
+            response = requests.post(api_url, headers=headers, data=upload_data, files=files, timeout=300)
+            
+            if response.status_code in [200, 201]:
+                result = response.json()
+                video_url = result.get('url') or result.get('html_url')
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'Video uploaded to Canvas Studio',
+                    'url': video_url,
+                    'response': result
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': f'Canvas API error: {response.status_code} - {response.text}'
+                }), 500
+            
+    except ImportError:
+        return jsonify({
+            'success': False,
+            'error': 'requests library not installed. Run: pip install requests'
+        }), 500
+    except Exception as e:
+        logging.error(f"Error uploading to Canvas: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/upload-to-youtube', methods=['POST'])
+def upload_to_youtube():
+    """Upload video to YouTube using OAuth2"""
+    try:
+        import requests
+        from google.oauth2.credentials import Credentials
+        from googleapiclient.discovery import build
+        from googleapiclient.http import MediaFileUpload
+        
+        data = request.json
+        session_name = data.get('session')
+        filename = data.get('filename')
+        client_id = data.get('client_id')
+        client_secret = data.get('client_secret')
+        title = data.get('title', 'Uploaded from Hallmark Record')
+        description = data.get('description', '')
+        privacy = data.get('privacy', 'private')
+        
+        if not all([session_name, filename, client_id, client_secret]):
+            return jsonify({'success': False, 'error': 'Missing required fields'}), 400
+        
+        # Build file path
+        video_path = os.path.join(OUTPUTS_DIR, session_name, filename)
+        if not os.path.exists(video_path):
+            return jsonify({'success': False, 'error': 'Video file not found'}), 404
+        
+        # Note: This is a simplified implementation
+        # Real OAuth2 flow requires user authorization via browser
+        # For production, implement proper OAuth2 flow with redirect URI
+        return jsonify({
+            'success': False,
+            'error': 'YouTube OAuth2 flow requires browser authorization. Please use YouTube Studio directly for now.'
+        }), 501
+        
+    except ImportError as ie:
+        return jsonify({
+            'success': False,
+            'error': f'Missing library: {str(ie)}. Run: pip install google-auth google-auth-oauthlib google-api-python-client'
+        }), 500
+    except Exception as e:
+        logging.error(f"Error uploading to YouTube: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/upload-to-vimeo', methods=['POST'])
+def upload_to_vimeo():
+    """Upload video to Vimeo using access token"""
+    try:
+        import requests
+        
+        data = request.json
+        session_name = data.get('session')
+        filename = data.get('filename')
+        access_token = data.get('access_token')
+        title = data.get('title', 'Uploaded from Hallmark Record')
+        description = data.get('description', '')
+        privacy = data.get('privacy', 'nobody')  # nobody, anybody, unlisted
+        
+        if not all([session_name, filename, access_token]):
+            return jsonify({'success': False, 'error': 'Missing required fields'}), 400
+        
+        # Build file path
+        video_path = os.path.join(OUTPUTS_DIR, session_name, filename)
+        if not os.path.exists(video_path):
+            return jsonify({'success': False, 'error': 'Video file not found'}), 404
+        
+        # Get file size
+        file_size = os.path.getsize(video_path)
+        
+        # Step 1: Create upload ticket
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json',
+            'Accept': 'application/vnd.vimeo.*+json;version=3.4'
+        }
+        
+        upload_data = {
+            'upload': {
+                'approach': 'tus',
+                'size': str(file_size)
+            },
+            'name': title,
+            'description': description,
+            'privacy': {
+                'view': privacy
+            }
+        }
+        
+        response = requests.post(
+            'https://api.vimeo.com/me/videos',
+            headers=headers,
+            json=upload_data
+        )
+        
+        if response.status_code not in [200, 201]:
+            return jsonify({
+                'success': False,
+                'error': f'Failed to create upload ticket: {response.text}'
+            }), response.status_code
+        
+        result = response.json()
+        upload_link = result['upload']['upload_link']
+        video_uri = result['uri']
+        video_link = result['link']
+        
+        # Step 2: Upload the file
+        with open(video_path, 'rb') as f:
+            upload_response = requests.patch(
+                upload_link,
+                headers={
+                    'Tus-Resumable': '1.0.0',
+                    'Upload-Offset': '0',
+                    'Content-Type': 'application/offset+octet-stream'
+                },
+                data=f
+            )
+        
+        if upload_response.status_code not in [200, 204]:
+            return jsonify({
+                'success': False,
+                'error': f'Failed to upload video: {upload_response.text}'
+            }), upload_response.status_code
+        
+        logging.info(f"Successfully uploaded to Vimeo: {video_link}")
+        return jsonify({
+            'success': True,
+            'url': video_link,
+            'message': 'Video uploaded successfully'
+        })
+        
+    except ImportError:
+        return jsonify({
+            'success': False,
+            'error': 'requests library not installed. Run: pip install requests'
+        }), 500
+    except Exception as e:
+        logging.error(f"Error uploading to Vimeo: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/upload-to-stream', methods=['POST'])
+def upload_to_stream():
+    """Upload video to Microsoft Stream using Azure AD"""
+    try:
+        import requests
+        import msal
+        
+        data = request.json
+        session_name = data.get('session')
+        filename = data.get('filename')
+        tenant_id = data.get('tenant_id')
+        client_id = data.get('client_id')
+        client_secret = data.get('client_secret')
+        title = data.get('title', 'Uploaded from Hallmark Record')
+        description = data.get('description', '')
+        
+        if not all([session_name, filename, tenant_id, client_id, client_secret]):
+            return jsonify({'success': False, 'error': 'Missing required fields'}), 400
+        
+        # Build file path
+        video_path = os.path.join(OUTPUTS_DIR, session_name, filename)
+        if not os.path.exists(video_path):
+            return jsonify({'success': False, 'error': 'Video file not found'}), 404
+        
+        # Authenticate with Microsoft Graph
+        authority = f"https://login.microsoftonline.com/{tenant_id}"
+        scope = ["https://graph.microsoft.com/.default"]
+        
+        app = msal.ConfidentialClientApplication(
+            client_id,
+            authority=authority,
+            client_credential=client_secret
+        )
+        
+        result = app.acquire_token_for_client(scopes=scope)
+        
+        if "access_token" not in result:
+            error_msg = result.get("error_description", "Authentication failed")
+            return jsonify({'success': False, 'error': error_msg}), 401
+        
+        access_token = result['access_token']
+        
+        # Note: Microsoft Stream (Classic) API is deprecated
+        # Stream on SharePoint uses different endpoints
+        # This is a placeholder for the new Stream API
+        return jsonify({
+            'success': False,
+            'error': 'Microsoft Stream API integration requires SharePoint site setup. Please contact your IT administrator.'
+        }), 501
+        
+    except ImportError as ie:
+        return jsonify({
+            'success': False,
+            'error': f'Missing library: {str(ie)}. Run: pip install msal requests'
+        }), 500
+    except Exception as e:
+        logging.error(f"Error uploading to Stream: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/launch-recorder', methods=['POST'])
 def launch_recorder():
-    """Launch the main recording application"""
+    """Launch or activate the main recording application"""
     try:
-        main_py = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'main.py')
-        
-        if not os.path.exists(main_py):
-            return jsonify({'success': False, 'error': 'main.py not found'}), 404
-        
-        # Launch main.py in a new process
-        if os.name == 'nt':  # Windows
-            subprocess.Popen(['python', main_py], creationflags=subprocess.CREATE_NEW_CONSOLE)
-        else:  # Unix/Mac
-            subprocess.Popen(['python', main_py])
-        
-        logging.info("Launched recording application")
-        return jsonify({'success': True, 'message': 'Recording app launched'})
+        # Check if running as bundled application
+        if getattr(sys, 'frozen', False):
+            # Running in PyInstaller bundle - look for Hallmark Recorder.exe
+            base_path = os.path.dirname(sys.executable)
+            parent_path = os.path.dirname(base_path)
+            recorder_exe = os.path.join(parent_path, 'Recorder', 'Hallmark Recorder.exe')
+            
+            logging.info(f"Looking for recorder at: {recorder_exe}")
+            
+            if os.path.exists(recorder_exe):
+                # Check if the recorder process is already running
+                recorder_running = False
+                recorder_pid = None
+                
+                for proc in psutil.process_iter(['pid', 'name', 'exe']):
+                    try:
+                        if proc.info['name'] == 'Hallmark Recorder.exe':
+                            recorder_running = True
+                            recorder_pid = proc.info['pid']
+                            logging.info(f"Found running recorder process: PID {recorder_pid}")
+                            break
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        continue
+                
+                if recorder_running:
+                    # Recorder is running - bring it to focus
+                    def callback(hwnd, windows):
+                        if win32gui.IsWindowVisible(hwnd):
+                            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+                            if pid == recorder_pid:
+                                windows.append(hwnd)
+                        return True
+                    
+                    windows = []
+                    win32gui.EnumWindows(callback, windows)
+                    
+                    if windows:
+                        hwnd = windows[0]
+                        # Restore if minimized
+                        if win32gui.IsIconic(hwnd):
+                            win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                        # Bring to foreground
+                        win32gui.SetForegroundWindow(hwnd)
+                        logging.info("Activated existing recorder window")
+                        return jsonify({'success': True, 'message': 'Recorder activated'})
+                    else:
+                        logging.warning("Recorder process found but no window detected")
+                
+                # Recorder not running - launch it
+                try:
+                    os.startfile(recorder_exe)
+                    logging.info(f"Launched recording application from: {recorder_exe}")
+                    return jsonify({'success': True, 'message': 'Recording app launched'})
+                except Exception as e:
+                    error_msg = f'Failed to launch recorder: {str(e)}'
+                    logging.error(error_msg)
+                    return jsonify({'success': False, 'error': error_msg}), 500
+            else:
+                error_msg = f'Recorder not found at: {recorder_exe}'
+                logging.error(error_msg)
+                return jsonify({'success': False, 'error': error_msg}), 404
+        else:
+            # Running as script - use main.py
+            main_py = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'main.py')
+            
+            if not os.path.exists(main_py):
+                return jsonify({'success': False, 'error': 'main.py not found'}), 404
+            
+            # Launch main.py in a new process
+            if os.name == 'nt':  # Windows
+                subprocess.Popen(['python', main_py], creationflags=subprocess.CREATE_NEW_CONSOLE)
+            else:  # Unix/Mac
+                subprocess.Popen(['python', main_py])
+            
+            logging.info("Launched recording application")
+            return jsonify({'success': True, 'message': 'Recording app launched'})
         
     except Exception as e:
         logging.error(f"Error launching recorder: {e}")

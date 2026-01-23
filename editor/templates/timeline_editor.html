@@ -77,6 +77,16 @@
             background: #505050;
         }
 
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(56, 239, 125, 0.4);
+        }
+
         /* Main Content */
         .main-content {
             display: grid;
@@ -642,16 +652,15 @@
         <div class="top-bar">
             <div class="logo">🎥 Hallmark Record</div>
             <div class="top-controls">
-                <button class="btn btn-secondary" onclick="openRecorder()" title="Open Recording App">🔴 Record New</button>
+                <button class="btn btn-primary" onclick="openRecorder()" title="Return to Recording App" style="background: linear-gradient(135deg, #f44336 0%, #e91e63 100%);">◀ Back to Recorder</button>
                 <select id="session-select" class="btn btn-secondary" onchange="loadSession()">
                     <option value="">Select Session</option>
                 </select>
                 <button class="btn btn-secondary" onclick="createOverlay()">📹 Overlay Camera</button>
                 <button class="btn btn-secondary" onclick="recordAudio()">🎤 Record Audio</button>
-                <button class="btn btn-secondary" onclick="addBackgroundMusic()">🎵 Background Music</button>
-                <button class="btn btn-secondary" onclick="addText()">➕ Text</button>
-                <button class="btn btn-secondary" onclick="addTransition()">✨ Transition</button>
+                <button class="btn btn-secondary" onclick="document.getElementById('watermark-upload').click()">🏷️ Add Watermark</button>
                 <button class="btn btn-primary" onclick="exportProject()">💾 Export</button>
+                <button class="btn btn-success" onclick="openUploadDialog()">📤 Upload</button>
             </div>
         </div>
 
@@ -664,6 +673,11 @@
                     <div class="media-tab active" data-tab="media">📹 Media</div>
                     <div class="media-tab" data-tab="text">📝 Text</div>
                 </div>
+                <div style="padding: 10px;">
+                    <input type="file" id="video-upload" accept="video/*" style="display: none;" onchange="uploadVideo()">
+                    <button class="btn btn-primary" onclick="document.getElementById('video-upload').click()" style="width: 100%;">📤 Upload Video</button>
+                </div>
+                <input type="file" id="watermark-upload" accept="image/*" style="display: none;" onchange="uploadWatermark()">
                 <div class="media-list" id="media-list"></div>
             </div>
 
@@ -690,6 +704,7 @@
                         <div class="overlay-resize-handle sw"></div>
                         <div class="overlay-resize-handle se"></div>
                     </div>
+                    <img id="watermark-preview" style="position: absolute; display: none; pointer-events: none; max-width: 150px; max-height: 150px; z-index: 100;" />
                 </div>
                 <div class="preview-controls">
                     <button class="play-btn" onclick="togglePlay()">▶</button>
@@ -705,6 +720,27 @@
             <!-- Right Panel - Properties -->
             <div class="properties-panel">
                 <h3>Properties</h3>
+                
+                <!-- Watermark Settings -->
+                <div id="watermark-settings" style="padding: 15px; background: #2a2a2a; border-radius: 8px; margin-bottom: 15px; display: none;">
+                    <h4 style="margin-top: 0; color: #fff; font-size: 14px;">🏷️ Watermark Settings</h4>
+                    <div style="margin-bottom: 10px;">
+                        <label style="color: #ccc; font-size: 12px; display: block; margin-bottom: 5px;">Position:</label>
+                        <select id="watermark-position" onchange="updateWatermark()" class="btn btn-secondary" style="width: 100%; text-align: left; padding: 8px; font-size: 12px;">
+                            <option value="top_left">Top-Left</option>
+                            <option value="top_right" selected>Top-Right</option>
+                            <option value="bottom_left">Bottom-Left</option>
+                            <option value="bottom_right">Bottom-Right</option>
+                            <option value="center">Center</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <label style="color: #ccc; font-size: 12px; display: block; margin-bottom: 5px;">Opacity: <span id="opacity-value">0.7</span></label>
+                        <input type="range" id="watermark-opacity" min="0.1" max="1.0" step="0.1" value="0.7" oninput="updateWatermark()" style="width: 100%;">
+                    </div>
+                    <button class="btn btn-secondary" onclick="removeWatermark()" style="width: 100%; font-size: 12px; padding: 8px;">🗑️ Remove Watermark</button>
+                </div>
+                
                 <div id="properties-content">
                     <p style="color: #666; text-align: center; margin-top: 50px;">
                         Select a clip to edit properties
@@ -747,6 +783,181 @@
         <p>Processing...</p>
     </div>
 
+    <!-- Audio Recording Modal -->
+    <div id="audio-record-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 3000; align-items: center; justify-content: center;">
+        <div style="background: #2a2a2a; padding: 30px; border-radius: 12px; width: 400px; max-width: 90%;">
+            <h2 style="margin-top: 0; color: #fff;">🎤 Record Audio</h2>
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; color: #ccc; margin-bottom: 8px;">Audio Input Device:</label>
+                <select id="audio-device-select" class="btn btn-secondary" style="width: 100%; text-align: left; padding: 10px;">
+                    <option value="">Loading devices...</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 20px; text-align: center;">
+                <button id="record-start-btn" class="btn btn-danger" onclick="startAudioRecording()" style="font-size: 18px; padding: 15px 30px;">🔴 Start Recording</button>
+                <button id="record-stop-btn" class="btn btn-secondary" onclick="stopAudioRecording()" style="font-size: 18px; padding: 15px 30px; display: none;">⏹️ Stop Recording</button>
+            </div>
+            <div id="recording-timer" style="text-align: center; color: #ff4444; font-size: 24px; font-weight: bold; margin-bottom: 20px; display: none;">00:00</div>
+            <div style="text-align: center;">
+                <button class="btn btn-secondary" onclick="closeAudioRecordModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="upload-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 3000; align-items: center; justify-content: center;">
+        <div style="background: #2a2a2a; padding: 30px; border-radius: 12px; width: 500px; max-width: 90%; max-height: 80vh; overflow-y: auto;">
+            <h2 style="margin-top: 0; color: #fff;">📤 Upload Video</h2>
+            
+            <!-- File Selection -->
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; color: #ccc; margin-bottom: 8px;">Select Video to Upload:</label>
+                <select id="upload-file-select" class="btn btn-secondary" style="width: 100%; text-align: left; padding: 10px;">
+                    <option value="">Choose a file...</option>
+                </select>
+            </div>
+            
+            <!-- Upload Service Selection -->
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; color: #ccc; margin-bottom: 8px;">Upload To:</label>
+                <select id="upload-service-select" onchange="updateUploadForm()" class="btn btn-secondary" style="width: 100%; text-align: left; padding: 10px;">
+                    <option value="">Select a service...</option>
+                    <option value="canvas_studio">Canvas Studio</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="vimeo">Vimeo</option>
+                    <option value="stream">Microsoft Stream</option>
+                    <option value="sharepoint">SharePoint (Coming Soon)</option>
+                </select>
+            </div>
+            
+            <!-- Canvas Studio Form -->
+            <div id="canvas-studio-form" style="display: none;">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: #ccc; margin-bottom: 8px; font-size: 14px;">Canvas Studio URL:</label>
+                    <input type="text" id="canvas-studio-url" placeholder="https://canvas.instructure.com" class="btn btn-secondary" style="width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #404040; color: #fff;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: #ccc; margin-bottom: 8px; font-size: 14px;">API Token:</label>
+                    <input type="password" id="canvas-studio-token" placeholder="Your Canvas API token" class="btn btn-secondary" style="width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #404040; color: #fff;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: #ccc; margin-bottom: 8px; font-size: 14px;">Video Title:</label>
+                    <input type="text" id="canvas-video-title" placeholder="Enter video title" class="btn btn-secondary" style="width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #404040; color: #fff;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: #ccc; margin-bottom: 8px; font-size: 14px;">Description (optional):</label>
+                    <textarea id="canvas-video-description" placeholder="Video description" rows="3" style="width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #404040; color: #fff; border-radius: 4px; resize: vertical;"></textarea>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: flex; align-items: center; color: #ccc; font-size: 14px;">
+                        <input type="checkbox" id="canvas-save-credentials" style="margin-right: 8px;">
+                        Save credentials for future uploads
+                    </label>
+                </div>
+            </div>
+            
+            <!-- YouTube Form -->
+            <div id="youtube-form" style="display: none;">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: #ccc; margin-bottom: 8px; font-size: 14px;">Client ID:</label>
+                    <input type="text" id="youtube-client-id" placeholder="Your Google OAuth Client ID" class="btn btn-secondary" style="width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #404040; color: #fff;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: #ccc; margin-bottom: 8px; font-size: 14px;">Client Secret:</label>
+                    <input type="password" id="youtube-client-secret" placeholder="Your Google OAuth Client Secret" class="btn btn-secondary" style="width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #404040; color: #fff;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: #ccc; margin-bottom: 8px; font-size: 14px;">Video Title:</label>
+                    <input type="text" id="youtube-video-title" placeholder="Enter video title" class="btn btn-secondary" style="width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #404040; color: #fff;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: #ccc; margin-bottom: 8px; font-size: 14px;">Description:</label>
+                    <textarea id="youtube-video-description" placeholder="Video description" rows="3" style="width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #404040; color: #fff; border-radius: 4px; resize: vertical;"></textarea>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: #ccc; margin-bottom: 8px; font-size: 14px;">Privacy:</label>
+                    <select id="youtube-privacy" class="btn btn-secondary" style="width: 100%; text-align: left; padding: 10px;">
+                        <option value="private">Private</option>
+                        <option value="unlisted">Unlisted</option>
+                        <option value="public">Public</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: flex; align-items: center; color: #ccc; font-size: 14px;">
+                        <input type="checkbox" id="youtube-save-credentials" style="margin-right: 8px;">
+                        Save credentials for future uploads
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Vimeo Form -->
+            <div id="vimeo-form" style="display: none;">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: #ccc; margin-bottom: 8px; font-size: 14px;">Access Token:</label>
+                    <input type="password" id="vimeo-token" placeholder="Your Vimeo access token" class="btn btn-secondary" style="width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #404040; color: #fff;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: #ccc; margin-bottom: 8px; font-size: 14px;">Video Title:</label>
+                    <input type="text" id="vimeo-video-title" placeholder="Enter video title" class="btn btn-secondary" style="width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #404040; color: #fff;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: #ccc; margin-bottom: 8px; font-size: 14px;">Description:</label>
+                    <textarea id="vimeo-video-description" placeholder="Video description" rows="3" style="width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #404040; color: #fff; border-radius: 4px; resize: vertical;"></textarea>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: #ccc; margin-bottom: 8px; font-size: 14px;">Privacy:</label>
+                    <select id="vimeo-privacy" class="btn btn-secondary" style="width: 100%; text-align: left; padding: 10px;">
+                        <option value="anybody">Public</option>
+                        <option value="nobody">Private</option>
+                        <option value="unlisted">Unlisted</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: flex; align-items: center; color: #ccc; font-size: 14px;">
+                        <input type="checkbox" id="vimeo-save-credentials" style="margin-right: 8px;">
+                        Save credentials for future uploads
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Microsoft Stream Form -->
+            <div id="stream-form" style="display: none;">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: #ccc; margin-bottom: 8px; font-size: 14px;">Tenant ID:</label>
+                    <input type="text" id="stream-tenant-id" placeholder="Your Microsoft 365 Tenant ID" class="btn btn-secondary" style="width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #404040; color: #fff;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: #ccc; margin-bottom: 8px; font-size: 14px;">Client ID:</label>
+                    <input type="text" id="stream-client-id" placeholder="Your Azure App Client ID" class="btn btn-secondary" style="width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #404040; color: #fff;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: #ccc; margin-bottom: 8px; font-size: 14px;">Client Secret:</label>
+                    <input type="password" id="stream-client-secret" placeholder="Your Azure App Client Secret" class="btn btn-secondary" style="width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #404040; color: #fff;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: #ccc; margin-bottom: 8px; font-size: 14px;">Video Title:</label>
+                    <input type="text" id="stream-video-title" placeholder="Enter video title" class="btn btn-secondary" style="width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #404040; color: #fff;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; color: #ccc; margin-bottom: 8px; font-size: 14px;">Description:</label>
+                    <textarea id="stream-video-description" placeholder="Video description" rows="3" style="width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #404040; color: #fff; border-radius: 4px; resize: vertical;"></textarea>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: flex; align-items: center; color: #ccc; font-size: 14px;">
+                        <input type="checkbox" id="stream-save-credentials" style="margin-right: 8px;">
+                        Save credentials for future uploads
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Upload Button -->
+            <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="closeUploadDialog()">Cancel</button>
+                <button class="btn btn-success" onclick="startUpload()">📤 Upload</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let sessions = [];
         let currentSession = null;
@@ -756,7 +967,8 @@
                 video2: [],
                 audio1: []
             },
-            items: []  // For text overlays and transitions
+            items: [],  // For text overlays and transitions
+            watermark: null  // Watermark configuration
         };
         let selectedClip = null;
         let clipCounter = 0;
@@ -885,6 +1097,8 @@
             const totalLoaded = videos.length + audios.length;
             if (totalLoaded > 0) {
                 showMessage(`✅ Auto-loaded ${videos.length} video(s) and ${audios.length} audio(s) to timeline`, 'success');
+                // Auto-fit timeline to available width after clips are loaded and metadata is ready
+                setTimeout(() => autoFitTimeline(), 1500); // Increased timeout to allow metadata loading
             }
             
             // Display in media library
@@ -1051,6 +1265,13 @@
                     const clipData = timeline.tracks[trackName].find(c => c.id === `clip-${clipCounter}`);
                     if (clipData) {
                         clipData.duration = durationSec;
+                    }
+                    
+                    // Trigger auto-fit after last video loads
+                    const allClips = document.querySelectorAll('.timeline-clip[data-duration]');
+                    const totalVideoClips = currentSession.files.filter(f => f.type === 'video').length;
+                    if (allClips.length === totalVideoClips) {
+                        autoFitTimeline();
                     }
                 });
             } else {
@@ -1301,7 +1522,7 @@
         }
 
         function zoomOut() {
-            timelineZoom = Math.max(timelineZoom / 1.5, 0.5); // Min 0.5x zoom
+            timelineZoom = Math.max(timelineZoom / 1.5, 0.3); // Min 0.3x zoom for better fitting
             applyTimelineZoom();
             showMessage(`Timeline zoom: ${Math.round(timelineZoom * 100)}%`, 'info');
         }
@@ -1314,6 +1535,46 @@
                 clip.style.minWidth = Math.max(50, newWidth) + 'px';
                 clip.style.width = Math.max(50, newWidth) + 'px';
             });
+        }
+
+        function autoFitTimeline() {
+            // Calculate total duration of all clips
+            let maxDuration = 0;
+            
+            document.querySelectorAll('.timeline-clip').forEach(clip => {
+                const duration = parseFloat(clip.dataset.duration || 0);
+                if (duration > maxDuration) {
+                    maxDuration = duration;
+                }
+            });
+            
+            if (maxDuration === 0) return;
+            
+            // Get timeline width
+            const timelineContent = document.querySelector('.timeline-content');
+            if (!timelineContent) return;
+            
+            const timelineWidth = timelineContent.clientWidth;
+            const trackLabelWidth = 100; // Approximate width of track labels
+            const availableWidth = timelineWidth - trackLabelWidth - 40; // 40px for padding
+            
+            // Calculate zoom to fit
+            const baseWidth = 100; // Base pixels per 10 seconds
+            const currentWidth = (maxDuration / 10) * baseWidth * timelineZoom;
+            
+            if (currentWidth < availableWidth) {
+                // Need to zoom in to fill space
+                const targetZoom = (availableWidth / currentWidth) * timelineZoom;
+                timelineZoom = Math.min(targetZoom, 10); // Cap at max zoom
+            } else {
+                // Need to zoom out to fit
+                const targetZoom = (availableWidth / currentWidth) * timelineZoom;
+                timelineZoom = Math.max(targetZoom, 0.3); // Allow zooming out more than before
+            }
+            
+            // Apply the new zoom
+            applyTimelineZoom();
+            console.log(`Auto-fit timeline: ${maxDuration}s clips, zoom: ${timelineZoom.toFixed(2)}x`);
         }
 
         function addText() {
@@ -1387,54 +1648,151 @@
             showMessage(`${type} transition added after clip ${clipIndex}`, 'success');
         }
 
-        function addBackgroundMusic() {
-            if (!currentSession) {
-                showMessage('No session selected', 'error');
+        async function uploadWatermark() {
+            const fileInput = document.getElementById('watermark-upload');
+            const file = fileInput.files[0];
+            
+            if (!file) return;
+            
+            const sessionName = document.getElementById('session-select').value;
+            if (!sessionName) {
+                showMessage('⚠️ Please select a session first', 'error');
                 return;
             }
             
-            // Get audio files from current session
-            const audioFiles = currentSession.files.filter(f => f.type === 'audio');
+            try {
+                showLoading(true);
+                showMessage('📤 Uploading watermark...', 'info');
+                
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('session', sessionName);
+                formData.append('type', 'watermark');
+                
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Ask for watermark position
+                    const positions = ['Top-Left', 'Top-Right', 'Bottom-Left', 'Bottom-Right', 'Center'];
+                    const positionChoice = prompt(`Select watermark position:\n1. Top-Left\n2. Top-Right\n3. Bottom-Left\n4. Bottom-Right\n5. Center\n\nEnter number (1-5):`, '2');
+                    const positionIndex = parseInt(positionChoice) - 1;
+                    
+                    if (isNaN(positionIndex) || positionIndex < 0 || positionIndex >= positions.length) {
+                        showMessage('⚠️ Invalid position. Watermark uploaded but not applied.', 'warning');
+                        fileInput.value = '';
+                        return;
+                    }
+                    
+                    const position = positions[positionIndex].toLowerCase().replace('-', '_');
+                    
+                    // Ask for opacity
+                    const opacityInput = prompt('Enter watermark opacity (0.1 to 1.0):', '0.7');
+                    const opacity = parseFloat(opacityInput);
+                    
+                    if (isNaN(opacity) || opacity < 0.1 || opacity > 1.0) {
+                        showMessage('⚠️ Invalid opacity. Using default 0.7', 'warning');
+                    }
+                    
+                    // Store watermark configuration
+                    timeline.watermark = {
+                        filename: data.filename,
+                        position: position,
+                        opacity: isNaN(opacity) ? 0.7 : opacity
+                    };
+                    
+                    // Update UI controls
+                    document.getElementById('watermark-position').value = position;
+                    document.getElementById('watermark-opacity').value = timeline.watermark.opacity;
+                    document.getElementById('opacity-value').textContent = timeline.watermark.opacity.toFixed(1);
+                    document.getElementById('watermark-settings').style.display = 'block';
+                    
+                    // Show watermark preview
+                    displayWatermarkPreview();
+                    
+                    showMessage(`✅ Watermark added! Adjust settings in Properties panel before exporting.`, 'success');
+                    fileInput.value = '';
+                } else {
+                    showMessage('Error: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('Error uploading watermark: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function updateWatermark() {
+            if (!timeline.watermark) return;
             
-            if (audioFiles.length === 0) {
-                showMessage('No audio files found in session. Use 🎤 Record Audio first.', 'error');
+            const position = document.getElementById('watermark-position').value;
+            const opacity = parseFloat(document.getElementById('watermark-opacity').value);
+            
+            timeline.watermark.position = position;
+            timeline.watermark.opacity = opacity;
+            
+            document.getElementById('opacity-value').textContent = opacity.toFixed(1);
+            
+            displayWatermarkPreview();
+            showMessage(`Watermark updated: ${position.replace('_', '-')} @ ${(opacity * 100).toFixed(0)}% opacity`, 'info');
+        }
+
+        function removeWatermark() {
+            if (confirm('Remove watermark from export?')) {
+                timeline.watermark = null;
+                document.getElementById('watermark-settings').style.display = 'none';
+                document.getElementById('watermark-preview').style.display = 'none';
+                showMessage('Watermark removed', 'info');
+            }
+        }
+
+        function displayWatermarkPreview() {
+            if (!timeline.watermark || !currentSession) {
+                document.getElementById('watermark-preview').style.display = 'none';
                 return;
             }
             
-            // Create selection dialog
-            let fileOptions = audioFiles.map((f, i) => `${i + 1}. ${f.name}`).join('\n');
-            const selection = parseInt(prompt(`Select background music:\n${fileOptions}\n\nEnter number:`));
+            const watermarkImg = document.getElementById('watermark-preview');
+            const watermarkUrl = `/api/preview/${currentSession.name}/${timeline.watermark.filename}`;
             
-            if (isNaN(selection) || selection < 1 || selection > audioFiles.length) {
-                showMessage('Invalid selection', 'error');
-                return;
+            watermarkImg.src = watermarkUrl;
+            watermarkImg.style.opacity = timeline.watermark.opacity;
+            watermarkImg.style.display = 'block';
+            
+            // Position the watermark
+            const position = timeline.watermark.position;
+            watermarkImg.style.top = 'auto';
+            watermarkImg.style.left = 'auto';
+            watermarkImg.style.right = 'auto';
+            watermarkImg.style.bottom = 'auto';
+            
+            switch(position) {
+                case 'top_left':
+                    watermarkImg.style.top = '10px';
+                    watermarkImg.style.left = '10px';
+                    break;
+                case 'top_right':
+                    watermarkImg.style.top = '10px';
+                    watermarkImg.style.right = '10px';
+                    break;
+                case 'bottom_left':
+                    watermarkImg.style.bottom = '60px';
+                    watermarkImg.style.left = '10px';
+                    break;
+                case 'bottom_right':
+                    watermarkImg.style.bottom = '60px';
+                    watermarkImg.style.right = '10px';
+                    break;
+                case 'center':
+                    watermarkImg.style.top = '50%';
+                    watermarkImg.style.left = '50%';
+                    watermarkImg.style.transform = 'translate(-50%, -50%)';
+                    break;
             }
-            
-            const selectedFile = audioFiles[selection - 1];
-            
-            // Get volume level
-            const volume = parseFloat(prompt('Background music volume (0.0 to 1.0):', '0.3'));
-            if (isNaN(volume) || volume < 0 || volume > 1) {
-                showMessage('Invalid volume. Use 0.0 to 1.0', 'error');
-                return;
-            }
-            
-            // Ask if should loop
-            const shouldLoop = confirm('Loop music if video is longer?');
-            
-            const backgroundMusic = {
-                id: Date.now(),
-                type: 'background_music',
-                file: selectedFile.name,
-                volume: volume,
-                loop: shouldLoop
-            };
-            
-            // Remove any existing background music
-            timeline.items = timeline.items.filter(item => item.type !== 'background_music');
-            
-            timeline.items.push(backgroundMusic);
-            showMessage(`🎵 Background music added: ${selectedFile.name} (volume: ${volume})`, 'success');
         }
 
         function togglePlay() {
@@ -1658,12 +2016,25 @@
         }
 
         async function exportProject() {
+            // Ask for output filename
+            const defaultName = `export_${new Date().toISOString().slice(0,10).replace(/-/g, '')}`;
+            const filename = prompt('Enter filename for exported video (without .mp4):', defaultName);
+            
+            if (!filename || filename.trim() === '') {
+                showMessage('Export cancelled', 'info');
+                return;
+            }
+            
+            // Ensure .mp4 extension
+            const outputName = filename.trim().endsWith('.mp4') ? filename.trim() : filename.trim() + '.mp4';
+            
             showLoading(true);
             
             // Build timeline data
             const timelineData = {
                 session: currentSession.name,
-                timeline: timeline
+                timeline: timeline,
+                output_name: outputName
             };
             
             try {
@@ -1676,7 +2047,22 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    showMessage('Project exported successfully!', 'success');
+                    // Show success with download link
+                    const downloadUrl = `/api/preview/${currentSession.name}/${data.output}`;
+                    showMessage(`✅ Export complete! Downloading: ${data.output}`, 'success');
+                    
+                    // Auto-download the file
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = data.output;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    
+                    // Reload session to show new file
+                    await loadSessions();
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    loadSession();
                 } else {
                     showMessage('Export failed: ' + data.error, 'error');
                 }
@@ -1694,23 +2080,51 @@
             setTimeout(() => msg.classList.remove('show'), 3000);
         }
 
-        async function openRecorder() {
+        function openRecorder() {
+            // Use custom URL protocol to launch Recorder (registered by installer)
+            // This works even without the web server running
+            window.location.href = 'hallmark-recorder://launch';
+        }
+
+        async function uploadVideo() {
+            const fileInput = document.getElementById('video-upload');
+            const file = fileInput.files[0];
+            
+            if (!file) return;
+            
+            const sessionName = document.getElementById('session-select').value;
+            if (!sessionName) {
+                showMessage('⚠️ Please select a session first', 'error');
+                return;
+            }
+            
             try {
                 showLoading(true);
-                const response = await fetch('/api/launch-recorder', {
+                showMessage('📤 Uploading video...', 'info');
+                
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('session', sessionName);
+                
+                const response = await fetch('/api/upload', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'}
+                    body: formData
                 });
-
+                
                 const data = await response.json();
                 
                 if (data.success) {
-                    showMessage('🎥 Recording app launched! Check your taskbar.', 'success');
+                    showMessage('✅ Video uploaded successfully!', 'success');
+                    // Reload session to show new file
+                    await loadSessions();
+                    loadSession();
+                    // Clear the file input
+                    fileInput.value = '';
                 } else {
                     showMessage('Error: ' + data.error, 'error');
                 }
             } catch (error) {
-                showMessage('Error launching recorder: ' + error.message, 'error');
+                showMessage('Error uploading video: ' + error.message, 'error');
             } finally {
                 showLoading(false);
             }
@@ -1730,6 +2144,8 @@
                 video.src = url;
                 video.load();
                 showMessage(`▶️ Previewing: ${fileName}`, 'info');
+                // Show watermark preview if one is set
+                displayWatermarkPreview();
             } else if (fileType === 'audio') {
                 video.src = url;
                 video.load();
@@ -2037,40 +2453,500 @@
             window.overlayData = null;
         }
 
+        let audioRecorder = null;
+        let audioChunks = [];
+        let recordingStartTime = null;
+        let recordingTimerInterval = null;
+
         async function recordAudio() {
             if (!currentSession) {
                 showMessage('Please select a session first', 'error');
                 return;
             }
 
-            const duration = prompt('How many seconds to record? (5-60)', '10');
-            const seconds = Math.max(5, Math.min(60, parseInt(duration || '10')));
+            // Show modal
+            document.getElementById('audio-record-modal').style.display = 'flex';
+            
+            // Get audio devices
+            try {
+                const response = await fetch('/api/audio-devices');
+                const data = await response.json();
+                
+                const select = document.getElementById('audio-device-select');
+                select.innerHTML = '';
+                
+                if (data.devices && data.devices.length > 0) {
+                    data.devices.forEach((device, index) => {
+                        const option = document.createElement('option');
+                        option.value = device.name;
+                        option.textContent = device.name;
+                        select.appendChild(option);
+                    });
+                } else {
+                    select.innerHTML = '<option value="">No audio devices found</option>';
+                }
+            } catch (error) {
+                console.error('Error loading audio devices:', error);
+                document.getElementById('audio-device-select').innerHTML = '<option value="default">Default Microphone</option>';
+            }
+        }
 
-            showMessage(`Recording audio for ${seconds} seconds...`, 'info');
-            showLoading(true);
+        function closeAudioRecordModal() {
+            document.getElementById('audio-record-modal').style.display = 'none';
+            if (audioRecorder && audioRecorder.state === 'recording') {
+                audioRecorder.stop();
+            }
+            if (recordingTimerInterval) {
+                clearInterval(recordingTimerInterval);
+            }
+        }
+
+        async function startAudioRecording() {
+            try {
+                // Get audio stream
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                audioRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                
+                audioRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+                
+                audioRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    await uploadRecordedAudio(audioBlob);
+                    
+                    // Stop all tracks
+                    stream.getTracks().forEach(track => track.stop());
+                    
+                    // Reset UI
+                    document.getElementById('record-start-btn').style.display = 'inline-block';
+                    document.getElementById('record-stop-btn').style.display = 'none';
+                    document.getElementById('recording-timer').style.display = 'none';
+                    
+                    if (recordingTimerInterval) {
+                        clearInterval(recordingTimerInterval);
+                    }
+                };
+                
+                audioRecorder.start();
+                recordingStartTime = Date.now();
+                
+                // Update UI
+                document.getElementById('record-start-btn').style.display = 'none';
+                document.getElementById('record-stop-btn').style.display = 'inline-block';
+                document.getElementById('recording-timer').style.display = 'block';
+                
+                // Start timer
+                recordingTimerInterval = setInterval(() => {
+                    const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+                    const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+                    const seconds = (elapsed % 60).toString().padStart(2, '0');
+                    document.getElementById('recording-timer').textContent = `${minutes}:${seconds}`;
+                }, 1000);
+                
+                showMessage('🎤 Recording...', 'info');
+            } catch (error) {
+                showMessage('Error accessing microphone: ' + error.message, 'error');
+            }
+        }
+
+        function stopAudioRecording() {
+            if (audioRecorder && audioRecorder.state === 'recording') {
+                audioRecorder.stop();
+                showMessage('Processing audio...', 'info');
+            }
+        }
+
+        async function uploadRecordedAudio(audioBlob) {
+            try {
+                showLoading(true);
+                
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                const filename = `recorded_audio_${timestamp}.wav`;
+                
+                const formData = new FormData();
+                formData.append('file', audioBlob, filename);
+                formData.append('session', currentSession.name);
+                
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage('✅ Audio recorded successfully!', 'success');
+                    closeAudioRecordModal();
+                    
+                    // Reload session to show new file
+                    await loadSessions();
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    loadSession();
+                } else {
+                    showMessage('Error saving audio: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('Error uploading audio: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function openUploadDialog() {
+            if (!currentSession) {
+                showMessage('Please select a session first', 'error');
+                return;
+            }
+            
+            // Populate file list
+            const fileSelect = document.getElementById('upload-file-select');
+            fileSelect.innerHTML = '<option value="">Choose a file...</option>';
+            
+            currentSession.files.forEach(file => {
+                if (file.type === 'video') {
+                    const option = document.createElement('option');
+                    option.value = file.name;
+                    option.textContent = file.name;
+                    fileSelect.appendChild(option);
+                }
+            });
+            
+            // Load saved credentials
+            loadSavedCredentials();
+            
+            document.getElementById('upload-modal').style.display = 'flex';
+        }
+
+        function closeUploadDialog() {
+            document.getElementById('upload-modal').style.display = 'none';
+            document.getElementById('upload-service-select').value = '';
+            updateUploadForm();
+        }
+
+        function updateUploadForm() {
+            const service = document.getElementById('upload-service-select').value;
+            
+            // Hide all forms
+            document.getElementById('canvas-studio-form').style.display = 'none';
+            document.getElementById('youtube-form').style.display = 'none';
+            document.getElementById('vimeo-form').style.display = 'none';
+            document.getElementById('stream-form').style.display = 'none';
+            
+            // Show selected service form
+            if (service === 'canvas_studio') {
+                document.getElementById('canvas-studio-form').style.display = 'block';
+            } else if (service === 'youtube') {
+                document.getElementById('youtube-form').style.display = 'block';
+            } else if (service === 'vimeo') {
+                document.getElementById('vimeo-form').style.display = 'block';
+            } else if (service === 'stream') {
+                document.getElementById('stream-form').style.display = 'block';
+            }
+        }
+
+        function loadSavedCredentials() {
+            // Load Canvas Studio credentials
+            const canvasUrl = localStorage.getItem('canvas_studio_url');
+            const canvasToken = localStorage.getItem('canvas_studio_token');
+            if (canvasUrl) document.getElementById('canvas-studio-url').value = canvasUrl;
+            if (canvasToken) document.getElementById('canvas-studio-token').value = canvasToken;
+            
+            // Load YouTube credentials
+            const ytClientId = localStorage.getItem('youtube_client_id');
+            const ytSecret = localStorage.getItem('youtube_client_secret');
+            if (ytClientId) document.getElementById('youtube-client-id').value = ytClientId;
+            if (ytSecret) document.getElementById('youtube-client-secret').value = ytSecret;
+            
+            // Load Vimeo credentials
+            const vimeoToken = localStorage.getItem('vimeo_token');
+            if (vimeoToken) document.getElementById('vimeo-token').value = vimeoToken;
+            
+            // Load Stream credentials
+            const streamTenant = localStorage.getItem('stream_tenant_id');
+            const streamClient = localStorage.getItem('stream_client_id');
+            const streamSecret = localStorage.getItem('stream_client_secret');
+            if (streamTenant) document.getElementById('stream-tenant-id').value = streamTenant;
+            if (streamClient) document.getElementById('stream-client-id').value = streamClient;
+            if (streamSecret) document.getElementById('stream-client-secret').value = streamSecret;
+        }
+
+        async function startUpload() {
+            const fileName = document.getElementById('upload-file-select').value;
+            const service = document.getElementById('upload-service-select').value;
+            
+            if (!fileName) {
+                showMessage('Please select a file to upload', 'error');
+                return;
+            }
+            
+            if (!service) {
+                showMessage('Please select an upload service', 'error');
+                return;
+            }
+            
+            if (service === 'canvas_studio') {
+                await uploadToCanvasStudio(fileName);
+            } else if (service === 'youtube') {
+                await uploadToYouTube(fileName);
+            } else if (service === 'vimeo') {
+                await uploadToVimeo(fileName);
+            } else if (service === 'stream') {
+                await uploadToStream(fileName);
+            } else {
+                showMessage('This service is coming soon!', 'info');
+            }
+        }
+
+        async function uploadToCanvasStudio(fileName) {
+            const canvasUrl = document.getElementById('canvas-studio-url').value.trim();
+            const canvasToken = document.getElementById('canvas-studio-token').value.trim();
+            const videoTitle = document.getElementById('canvas-video-title').value.trim();
+            const videoDescription = document.getElementById('canvas-video-description').value.trim();
+            const saveCredentials = document.getElementById('canvas-save-credentials').checked;
+            
+            if (!canvasUrl || !canvasToken) {
+                showMessage('Please enter Canvas Studio URL and API token', 'error');
+                return;
+            }
+            
+            if (!videoTitle) {
+                showMessage('Please enter a video title', 'error');
+                return;
+            }
+            
+            // Save credentials if requested
+            if (saveCredentials) {
+                localStorage.setItem('canvas_studio_url', canvasUrl);
+                localStorage.setItem('canvas_studio_token', canvasToken);
+            }
             
             try {
-                const response = await fetch('/api/record-audio', {
+                showLoading(true);
+                closeUploadDialog();
+                showMessage('📤 Uploading to Canvas Studio...', 'info');
+                
+                const response = await fetch('/api/upload-to-canvas', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         session: currentSession.name,
-                        duration: seconds
+                        filename: fileName,
+                        canvas_url: canvasUrl,
+                        canvas_token: canvasToken,
+                        title: videoTitle,
+                        description: videoDescription
                     })
                 });
-
+                
                 const data = await response.json();
                 
                 if (data.success) {
-                    showMessage(`✅ Audio recorded: ${data.output}`, 'success');
-                    await loadSessions(); // Refresh session list
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    loadSession(); // Reload current session to show new file
+                    showMessage('✅ Successfully uploaded to Canvas Studio!', 'success');
+                    if (data.url) {
+                        setTimeout(() => {
+                            if (confirm('Upload complete! Open video in Canvas Studio?')) {
+                                window.open(data.url, '_blank');
+                            }
+                        }, 1000);
+                    }
                 } else {
-                    showMessage('Recording failed: ' + data.error, 'error');
+                    showMessage('Upload failed: ' + data.error, 'error');
                 }
             } catch (error) {
-                showMessage('Error: ' + error.message, 'error');
+                showMessage('Error uploading: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function uploadToYouTube(fileName) {
+            const clientId = document.getElementById('youtube-client-id').value.trim();
+            const clientSecret = document.getElementById('youtube-client-secret').value.trim();
+            const videoTitle = document.getElementById('youtube-video-title').value.trim();
+            const videoDescription = document.getElementById('youtube-video-description').value.trim();
+            const privacy = document.getElementById('youtube-privacy').value;
+            const saveCredentials = document.getElementById('youtube-save-credentials').checked;
+            
+            if (!clientId || !clientSecret) {
+                showMessage('Please enter YouTube OAuth Client ID and Secret', 'error');
+                return;
+            }
+            
+            if (!videoTitle) {
+                showMessage('Please enter a video title', 'error');
+                return;
+            }
+            
+            // Save credentials if requested
+            if (saveCredentials) {
+                localStorage.setItem('youtube_client_id', clientId);
+                localStorage.setItem('youtube_client_secret', clientSecret);
+            }
+            
+            try {
+                showLoading(true);
+                closeUploadDialog();
+                showMessage('📤 Uploading to YouTube...', 'info');
+                
+                const response = await fetch('/api/upload-to-youtube', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        session: currentSession.name,
+                        filename: fileName,
+                        client_id: clientId,
+                        client_secret: clientSecret,
+                        title: videoTitle,
+                        description: videoDescription,
+                        privacy: privacy
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage('✅ Successfully uploaded to YouTube!', 'success');
+                    if (data.url) {
+                        setTimeout(() => {
+                            if (confirm('Upload complete! Open video on YouTube?')) {
+                                window.open(data.url, '_blank');
+                            }
+                        }, 1000);
+                    }
+                } else {
+                    showMessage('Upload failed: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('Error uploading: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function uploadToVimeo(fileName) {
+            const accessToken = document.getElementById('vimeo-token').value.trim();
+            const videoTitle = document.getElementById('vimeo-video-title').value.trim();
+            const videoDescription = document.getElementById('vimeo-video-description').value.trim();
+            const privacy = document.getElementById('vimeo-privacy').value;
+            const saveCredentials = document.getElementById('vimeo-save-credentials').checked;
+            
+            if (!accessToken) {
+                showMessage('Please enter Vimeo access token', 'error');
+                return;
+            }
+            
+            if (!videoTitle) {
+                showMessage('Please enter a video title', 'error');
+                return;
+            }
+            
+            // Save credentials if requested
+            if (saveCredentials) {
+                localStorage.setItem('vimeo_token', accessToken);
+            }
+            
+            try {
+                showLoading(true);
+                closeUploadDialog();
+                showMessage('📤 Uploading to Vimeo...', 'info');
+                
+                const response = await fetch('/api/upload-to-vimeo', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        session: currentSession.name,
+                        filename: fileName,
+                        access_token: accessToken,
+                        title: videoTitle,
+                        description: videoDescription,
+                        privacy: privacy
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage('✅ Successfully uploaded to Vimeo!', 'success');
+                    if (data.url) {
+                        setTimeout(() => {
+                            if (confirm('Upload complete! Open video on Vimeo?')) {
+                                window.open(data.url, '_blank');
+                            }
+                        }, 1000);
+                    }
+                } else {
+                    showMessage('Upload failed: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('Error uploading: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function uploadToStream(fileName) {
+            const tenantId = document.getElementById('stream-tenant-id').value.trim();
+            const clientId = document.getElementById('stream-client-id').value.trim();
+            const clientSecret = document.getElementById('stream-client-secret').value.trim();
+            const videoTitle = document.getElementById('stream-video-title').value.trim();
+            const videoDescription = document.getElementById('stream-video-description').value.trim();
+            const saveCredentials = document.getElementById('stream-save-credentials').checked;
+            
+            if (!tenantId || !clientId || !clientSecret) {
+                showMessage('Please enter all Microsoft Stream credentials', 'error');
+                return;
+            }
+            
+            if (!videoTitle) {
+                showMessage('Please enter a video title', 'error');
+                return;
+            }
+            
+            // Save credentials if requested
+            if (saveCredentials) {
+                localStorage.setItem('stream_tenant_id', tenantId);
+                localStorage.setItem('stream_client_id', clientId);
+                localStorage.setItem('stream_client_secret', clientSecret);
+            }
+            
+            try {
+                showLoading(true);
+                closeUploadDialog();
+                showMessage('📤 Uploading to Microsoft Stream...', 'info');
+                
+                const response = await fetch('/api/upload-to-stream', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        session: currentSession.name,
+                        filename: fileName,
+                        tenant_id: tenantId,
+                        client_id: clientId,
+                        client_secret: clientSecret,
+                        title: videoTitle,
+                        description: videoDescription
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage('✅ Successfully uploaded to Microsoft Stream!', 'success');
+                    if (data.url) {
+                        setTimeout(() => {
+                            if (confirm('Upload complete! Open video in Stream?')) {
+                                window.open(data.url, '_blank');
+                            }
+                        }, 1000);
+                    }
+                } else {
+                    showMessage('Upload failed: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('Error uploading: ' + error.message, 'error');
             } finally {
                 showLoading(false);
             }

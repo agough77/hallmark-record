@@ -6,6 +6,10 @@ import sys
 import os
 import threading
 import webbrowser
+import psutil
+import win32gui
+import win32con
+import win32process
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                             QHBoxLayout, QPushButton, QLabel, QListWidget, 
                             QGroupBox, QCheckBox, QMessageBox, QTextEdit,
@@ -19,6 +23,39 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from recorder.multi_input_recorder import MultiInputRecorder
 from updater import UpdateChecker, get_current_version
+
+
+def activate_existing_instance():
+    """Check if Recorder is already running and activate its window"""
+    current_pid = os.getpid()
+    
+    for proc in psutil.process_iter(['pid', 'name', 'exe']):
+        try:
+            # Look for another instance of Hallmark Recorder
+            if proc.info['name'] == 'Hallmark Recorder.exe' and proc.info['pid'] != current_pid:
+                # Found another instance - activate its window
+                def callback(hwnd, windows):
+                    if win32gui.IsWindowVisible(hwnd):
+                        _, pid = win32process.GetWindowThreadProcessId(hwnd)
+                        if pid == proc.info['pid']:
+                            windows.append(hwnd)
+                    return True
+                
+                windows = []
+                win32gui.EnumWindows(callback, windows)
+                
+                if windows:
+                    hwnd = windows[0]
+                    # Restore if minimized
+                    if win32gui.IsIconic(hwnd):
+                        win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                    # Bring to foreground
+                    win32gui.SetForegroundWindow(hwnd)
+                    return True
+        except (psutil.NoSuchProcess, psutil.AccessDenied, Exception):
+            continue
+    
+    return False
 
 
 class RecordingSignals(QObject):
@@ -568,6 +605,11 @@ class HallmarkRecordApp(QMainWindow):
 
 
 def main():
+    # Check if another instance is already running
+    if activate_existing_instance():
+        # Found and activated existing instance, exit this one
+        return
+    
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
     
