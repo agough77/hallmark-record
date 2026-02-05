@@ -6,7 +6,6 @@
 #define MyAppPublisher "Hallmark University"
 #define MyAppURL "https://github.com/agough77/hallmark-record"
 #define MyAppExeName "Hallmark Recorder.exe"
-#define MyAppEditor "Hallmark Editor.exe"
 
 [Setup]
 AppId={{8F3B2C1D-9E4A-4B5C-8D7F-1A2B3C4D5E6F}
@@ -39,7 +38,6 @@ Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescrip
 
 [Files]
 Source: "dist\Hallmark Recorder\*"; DestDir: "{app}\Recorder"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "dist\Hallmark Editor\*"; DestDir: "{app}\Editor"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
 Source: "config_template.json"; DestDir: "{app}"; Flags: ignoreversion
@@ -48,12 +46,9 @@ Source: "config_manager.py"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\Hallmark Recorder"; Filename: "{app}\Recorder\{#MyAppExeName}"
-Name: "{group}\Hallmark Editor"; Filename: "{app}\Editor\{#MyAppEditor}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\Hallmark Recorder"; Filename: "{app}\Recorder\{#MyAppExeName}"; Tasks: desktopicon
-Name: "{autodesktop}\Hallmark Editor"; Filename: "{app}\Editor\{#MyAppEditor}"; Tasks: desktopicon
 Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\Hallmark Recorder"; Filename: "{app}\Recorder\{#MyAppExeName}"; Tasks: quicklaunchicon
-Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\Hallmark Editor"; Filename: "{app}\Editor\{#MyAppEditor}"; Tasks: quicklaunchicon
 
 [Run]
 Filename: "{app}\Recorder\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
