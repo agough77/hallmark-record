@@ -10,6 +10,7 @@ import psutil
 import win32gui
 import win32con
 import win32process
+from datetime import datetime
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                             QHBoxLayout, QPushButton, QLabel, QListWidget, 
                             QGroupBox, QCheckBox, QMessageBox, QTextEdit,
@@ -23,6 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from recorder.multi_input_recorder import MultiInputRecorder
 from updater import UpdateChecker, get_current_version
+from config_manager import get_config_manager
 
 
 def activate_existing_instance():
@@ -70,8 +72,11 @@ class HallmarkRecordApp(QMainWindow):
     def __init__(self):
         super().__init__()
         
-        # Set default output folder
-        self.output_folder = os.path.join(os.path.expanduser("~"), "Downloads", "Hallmark Record")
+        # Load configuration
+        self.config = get_config_manager()
+        
+        # Set output folder from config
+        self.output_folder = self.config.get_output_folder()
         
         self.recorder = MultiInputRecorder(self.output_folder)
         self.signals = RecordingSignals()
@@ -92,8 +97,12 @@ class HallmarkRecordApp(QMainWindow):
         self.init_ui()
         self.load_devices()
         
-        # Check for updates on startup (after 2 seconds)
-        QTimer.singleShot(2000, self.check_for_updates_silent)
+        # Check for VLC on startup (after 1 second)
+        QTimer.singleShot(1000, self.check_vlc_installation)
+        
+        # Check for updates on startup (after 2 seconds) if enabled
+        if self.config.get('advanced.check_for_updates', True):
+            QTimer.singleShot(2000, self.check_for_updates_silent)
         
     def init_ui(self):
         """Initialize the user interface"""
@@ -427,25 +436,315 @@ class HallmarkRecordApp(QMainWindow):
             self.show_error(f'Error stopping recording: {str(e)}')
     
     def open_editor(self):
-        """Open the web-based video editor"""
+        """Open the wizard-style video editor"""
         self.log('Opening video editor...')
         
         try:
-            # Start Flask server in a thread
-            editor_thread = threading.Thread(target=self.start_editor_server, daemon=True)
-            editor_thread.start()
+            from editor.wizard_editor import WizardEditor
             
-            # Wait a moment for server to start
-            QTimer.singleShot(2000, lambda: webbrowser.open('http://localhost:5500'))
+            # Always show session selector dialog - let user choose which session to edit
+            session_folder = self.show_session_selector()
             
-            self.log('Editor opened in browser at http://localhost:5500')
+            if session_folder:
+                # Find FFmpeg path
+                ffmpeg_path = self.find_ffmpeg()
+                
+                # Create and show wizard editor
+                self.editor_window = WizardEditor(session_folder, ffmpeg_path)
+                self.editor_window.show()
+                
+                self.log(f'Editor opened for session: {os.path.basename(session_folder)}')
+            else:
+                self.log('Editor opening cancelled')
             
         except Exception as e:
             self.log(f'Error opening editor: {str(e)}')
             self.show_error(f'Error opening editor: {str(e)}')
     
+    def show_session_selector(self):
+        """Show dialog to select, view info, and manage recording sessions"""
+        from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QTableWidget, QTableWidgetItem, QHeaderView
+        import shutil
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle('Select Recording Session')
+        dialog.setMinimumWidth(900)
+        dialog.setMinimumHeight(600)
+        
+        layout = QVBoxLayout(dialog)
+        
+        # Current session indicator
+        if self.current_session:
+            current_info = QLabel(f'📍 Current Session: {os.path.basename(self.current_session)}')
+            current_info.setStyleSheet('font-size: 14px; color: #2196F3; padding: 10px; font-weight: bold; background: #E3F2FD; border-radius: 5px;')
+            layout.addWidget(current_info)
+        
+        # Instructions
+        info = QLabel('Select recording sessions to edit or delete (hold Ctrl to select multiple):')
+        info.setStyleSheet('font-size: 13px; color: #666; padding: 10px; font-weight: bold;')
+        layout.addWidget(info)
+        
+        # Session table
+        table = QTableWidget()
+        table.setColumnCount(5)
+        table.setHorizontalHeaderLabels(['Date & Time', 'Session Name', 'Files', 'Size', 'Location'])
+        table.horizontalHeader().setStretchLastSection(True)
+        table.setSelectionBehavior(QTableWidget.SelectRows)
+        table.setSelectionMode(QTableWidget.MultiSelection)
+        table.setEditTriggers(QTableWidget.NoEditTriggers)
+        
+        # Load sessions from output folder
+        sessions = []
+        if os.path.exists(self.output_folder):
+            for item in os.listdir(self.output_folder):
+                session_path = os.path.join(self.output_folder, item)
+                if os.path.isdir(session_path) and item.startswith('session_'):
+                    try:
+                        # Get session info
+                        files = os.listdir(session_path)
+                        file_count = len(files)
+                        
+                        # Calculate total size
+                        total_size = 0
+                        for f in files:
+                            file_path = os.path.join(session_path, f)
+                            if os.path.isfile(file_path):
+                                total_size += os.path.getsize(file_path)
+                        
+                        size_mb = total_size / (1024 * 1024)
+                        
+                        # Get creation time from folder name
+                        date_display = 'Unknown'
+                        date_obj = None
+                        
+                        try:
+                            # Extract date string: session_20260205_092729 -> 20260205_092729
+                            date_str = item.replace('session_', '')
+                            # Parse: 20260205_092729
+                            date_obj = datetime.strptime(date_str, '%Y%m%d_%H%M%S')
+                            date_display = date_obj.strftime('%b %d, %Y at %I:%M:%S %p')
+                        except Exception as e:
+                            # If parsing fails, try to use file modification time
+                            try:
+                                mtime = os.path.getmtime(session_path)
+                                date_obj = datetime.fromtimestamp(mtime)
+                                date_display = date_obj.strftime('%b %d, %Y at %I:%M:%S %p')
+                            except:
+                                date_display = 'Unknown'
+                        
+                        sessions.append({
+                            'name': item,
+                            'path': session_path,
+                            'date': date_display,
+                            'date_obj': date_obj,
+                            'files': file_count,
+                            'size': size_mb
+                        })
+                    except Exception as e:
+                        continue
+        
+        # Sort by date (newest first)
+        sessions.sort(key=lambda x: x['name'], reverse=True)
+        
+        # Populate table
+        table.setRowCount(len(sessions))
+        for row, session in enumerate(sessions):
+            # Check if this is the current session
+            is_current = self.current_session and os.path.normpath(session['path']) == os.path.normpath(self.current_session)
+            
+            date_item = QTableWidgetItem(session['date'])
+            name_item = QTableWidgetItem(session['name'])
+            files_item = QTableWidgetItem(str(session['files']))
+            size_item = QTableWidgetItem(f"{session['size']:.2f} MB")
+            path_item = QTableWidgetItem(session['path'])
+            
+            # Highlight current session
+            if is_current:
+                from PyQt5.QtGui import QColor, QBrush
+                highlight_color = QColor(227, 242, 253)  # Light blue
+                date_item.setBackground(QBrush(highlight_color))
+                name_item.setBackground(QBrush(highlight_color))
+                files_item.setBackground(QBrush(highlight_color))
+                size_item.setBackground(QBrush(highlight_color))
+                path_item.setBackground(QBrush(highlight_color))
+                
+                # Add indicator to name
+                name_item.setText(f"📍 {session['name']}")
+            
+            table.setItem(row, 0, date_item)
+            table.setItem(row, 1, name_item)
+            table.setItem(row, 2, files_item)
+            table.setItem(row, 3, size_item)
+            table.setItem(row, 4, path_item)
+        
+        # Auto-resize columns
+        table.resizeColumnsToContents()
+        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        
+        # Auto-select current session if it exists
+        if self.current_session:
+            for row, session in enumerate(sessions):
+                if os.path.normpath(session['path']) == os.path.normpath(self.current_session):
+                    table.selectRow(row)
+                    break
+        
+        # Double-click to open session
+        def on_double_click(item):
+            if item:
+                table.selectRow(item.row())
+                dialog.accept()
+        table.itemDoubleClicked.connect(on_double_click)
+        
+        layout.addWidget(table)
+        
+        # Storage info
+        if sessions:
+            total_size = sum(s['size'] for s in sessions)
+            storage_info = QLabel(f'Total storage used: {total_size:.2f} MB across {len(sessions)} sessions')
+            storage_info.setStyleSheet('font-size: 11px; color: #999; padding: 5px;')
+            layout.addWidget(storage_info)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        
+        delete_btn = QPushButton('🗑️ Delete Selected')
+        delete_btn.setStyleSheet('background: #f44336; color: white; padding: 8px 15px; font-weight: bold;')
+        delete_btn.clicked.connect(lambda: self.delete_session_from_table(table, sessions, storage_info if sessions else None))
+        button_layout.addWidget(delete_btn)
+        
+        button_layout.addStretch()
+        
+        button_box = QDialogButtonBox(QDialogButtonBox.Open | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(dialog.accept)
+        button_box.rejected.connect(dialog.reject)
+        button_layout.addWidget(button_box)
+        
+        layout.addLayout(button_layout)
+        
+        # Show dialog
+        selected_session = None
+        if dialog.exec_() == QDialog.Accepted:
+            selected_rows = table.selectionModel().selectedRows()
+            if len(selected_rows) == 1:
+                row = selected_rows[0].row()
+                if row < len(sessions):
+                    selected_session = sessions[row]['path']
+            elif len(selected_rows) > 1:
+                QMessageBox.warning(self, 'Multiple Selection', 'Please select only one session to open.')
+        
+        return selected_session
+    
+    def delete_session_from_table(self, table, sessions, storage_info):
+        """Delete selected sessions from table"""
+        import shutil
+        
+        selected_rows = table.selectionModel().selectedRows()
+        if not selected_rows:
+            QMessageBox.warning(self, 'No Selection', 'Please select one or more sessions to delete.')
+            return
+        
+        # Get selected sessions
+        selected_sessions = []
+        for index in selected_rows:
+            row = index.row()
+            if row < len(sessions):
+                selected_sessions.append((row, sessions[row]))
+        
+        # Sort by row in reverse order so we can delete from bottom up
+        selected_sessions.sort(key=lambda x: x[0], reverse=True)
+        
+        # Build confirmation message
+        if len(selected_sessions) == 1:
+            session = selected_sessions[0][1]
+            message = (
+                f"Are you sure you want to delete this session?\n\n"
+                f"Session: {session['name']}\n"
+                f"Date: {session['date']}\n"
+                f"Files: {session['files']}\n"
+                f"Size: {session['size']:.2f} MB\n\n"
+                f"This action cannot be undone!"
+            )
+        else:
+            total_size = sum(s[1]['size'] for s in selected_sessions)
+            total_files = sum(s[1]['files'] for s in selected_sessions)
+            message = (
+                f"Are you sure you want to delete {len(selected_sessions)} sessions?\n\n"
+                f"Total Files: {total_files}\n"
+                f"Total Size: {total_size:.2f} MB\n\n"
+                f"This action cannot be undone!"
+            )
+        
+        # Confirm deletion
+        reply = QMessageBox.question(
+            self,
+            'Confirm Deletion',
+            message,
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            deleted_count = 0
+            failed_count = 0
+            
+            for row, session in selected_sessions:
+                try:
+                    # Delete the session folder
+                    shutil.rmtree(session['path'])
+                    
+                    # Remove from table and sessions list
+                    table.removeRow(row)
+                    sessions.pop(row)
+                    
+                    deleted_count += 1
+                    self.log(f"Deleted session: {session['name']}")
+                    
+                except Exception as e:
+                    failed_count += 1
+                    self.log(f"Error deleting session {session['name']}: {str(e)}")
+            
+            # Update storage info
+            if storage_info:
+                if sessions:
+                    total_size = sum(s['size'] for s in sessions)
+                    storage_info.setText(f'Total storage used: {total_size:.2f} MB across {len(sessions)} sessions')
+                else:
+                    storage_info.setText('No sessions found')
+            
+            # Show result
+            if failed_count == 0:
+                QMessageBox.information(self, 'Deleted', f"Successfully deleted {deleted_count} session(s).")
+            else:
+                QMessageBox.warning(self, 'Partial Success', 
+                    f"Deleted {deleted_count} session(s).\nFailed to delete {failed_count} session(s).")
+    
+    def find_ffmpeg(self):
+        """Find ffmpeg executable"""
+        # Determine the base path (works for both script and PyInstaller bundle)
+        if getattr(sys, 'frozen', False):
+            # Running in PyInstaller bundle
+            base_path = sys._MEIPASS
+        else:
+            # Running as script
+            base_path = os.path.dirname(os.path.abspath(__file__))
+        
+        # Check bundled ffmpeg location (PyInstaller)
+        bundled_ffmpeg = os.path.join(base_path, "ffmpeg", "bin", "ffmpeg.exe")
+        if os.path.exists(bundled_ffmpeg):
+            return bundled_ffmpeg
+        
+        # Check hallmark-scribble ffmpeg location (development)
+        hallmark_ffmpeg = os.path.join(
+            base_path,
+            "hallmark-scribble", "shared", "ffmpeg", "bin", "ffmpeg.exe"
+        )
+        if os.path.exists(hallmark_ffmpeg):
+            return hallmark_ffmpeg
+        
+        return "ffmpeg"
+    
     def start_editor_server(self):
-        """Start the Flask editor server"""
+        """Start the Flask editor server (DEPRECATED - now using desktop wizard)"""
         try:
             from editor.video_editor import app
             app.run(debug=False, port=5500, use_reloader=False)
@@ -482,6 +781,9 @@ class HallmarkRecordApp(QMainWindow):
             # Update recorder with new output directory
             self.recorder = MultiInputRecorder(self.output_folder)
             
+            # Save to config
+            self.config.set('installation.output_folder', folder)
+            
             self.log_text.append(f"📁 Output folder changed to: {folder}")
             self.status_bar.showMessage(f"Saving to: {folder}")
     
@@ -492,6 +794,82 @@ class HallmarkRecordApp(QMainWindow):
     def on_recording_stopped(self):
         """Handle recording stopped"""
         pass
+    
+    def check_vlc_installation(self):
+        """Check if VLC is installed and prompt to install if missing"""
+        from vlc_installer import check_vlc_installed, install_vlc
+        from PyQt5.QtCore import QThread, pyqtSignal
+        from PyQt5.QtWidgets import QProgressDialog
+        
+        # Check if VLC is installed
+        installed, path = check_vlc_installed()
+        
+        if installed:
+            # VLC is already installed
+            return
+        
+        # VLC not found - prompt user to install
+        reply = QMessageBox.question(
+            self,
+            'VLC Media Player Not Found',
+            'VLC Media Player is required for live video preview in the editor.\n\n'
+            'Would you like to install VLC now? (~40 MB download)\n\n'
+            'You can skip this and install it later from the editor.',
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes
+        )
+        
+        if reply != QMessageBox.Yes:
+            return
+        
+        # Show progress dialog
+        progress = QProgressDialog('Installing VLC Media Player...', 'Cancel', 0, 0, self)
+        progress.setWindowModality(Qt.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.setValue(0)
+        progress.setCancelButton(None)  # Don't allow canceling
+        progress.show()
+        
+        # Install in background thread
+        class InstallThread(QThread):
+            finished_signal = pyqtSignal(bool, str)
+            
+            def run(self):
+                try:
+                    success, message = install_vlc()
+                    self.finished_signal.emit(success, message)
+                except Exception as e:
+                    self.finished_signal.emit(False, str(e))
+        
+        def on_install_complete(success, message):
+            progress.close()
+            
+            # Clean up thread
+            if hasattr(self, 'vlc_install_thread'):
+                self.vlc_install_thread.wait()
+                self.vlc_install_thread.deleteLater()
+                self.vlc_install_thread = None
+            
+            if success:
+                QMessageBox.information(
+                    self,
+                    'Installation Complete',
+                    f'VLC Media Player has been installed successfully!\n\n'
+                    f'{message}\n\n'
+                    'Live video preview is now available in the editor.'
+                )
+            else:
+                QMessageBox.warning(
+                    self,
+                    'Installation Failed',
+                    f'Failed to install VLC:\n\n{message}\n\n'
+                    'You can install VLC manually from:\nhttps://www.videolan.org/vlc/\n\n'
+                    'The application will work, but live video preview will be unavailable.'
+                )
+        
+        self.vlc_install_thread = InstallThread()
+        self.vlc_install_thread.finished_signal.connect(on_install_complete)
+        self.vlc_install_thread.start()
     
     def check_for_updates_silent(self):
         """Check for updates silently on startup"""

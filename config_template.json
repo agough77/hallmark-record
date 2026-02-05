@@ -1,0 +1,70 @@
+{
+  "version": "1.0",
+  "installation": {
+    "output_folder": "C:\\HallmarkRecordings",
+    "install_path": "C:\\Program Files\\Hallmark Record",
+    "create_desktop_shortcut": true,
+    "create_start_menu_shortcut": true,
+    "auto_start": false
+  },
+  "recording": {
+    "default_quality": "high",
+    "auto_name_sessions": true,
+    "session_name_format": "session_%Y%m%d_%H%M%S"
+  },
+  "export": {
+    "default_quality": "medium",
+    "auto_export_after_recording": false,
+    "export_format": "mp4"
+  },
+  "watermark": {
+    "enabled": false,
+    "image_path": "",
+    "position": "top_right",
+    "opacity": 0.7
+  },
+  "upload": {
+    "enabled": false,
+    "auto_upload_after_export": false,
+    "destinations": [
+      {
+        "name": "SharePoint",
+        "type": "sharepoint",
+        "url": "",
+        "username": "",
+        "password_encrypted": "",
+        "enabled": false
+      },
+      {
+        "name": "OneDrive",
+        "type": "onedrive",
+        "path": "",
+        "enabled": false
+      },
+      {
+        "name": "Network Share",
+        "type": "network_share",
+        "unc_path": "",
+        "username": "",
+        "password_encrypted": "",
+        "enabled": false
+      },
+      {
+        "name": "FTP Server",
+        "type": "ftp",
+        "host": "",
+        "port": 21,
+        "username": "",
+        "password_encrypted": "",
+        "remote_path": "",
+        "enabled": false
+      }
+    ]
+  },
+  "advanced": {
+    "ffmpeg_path": "",
+    "enable_logging": true,
+    "log_level": "INFO",
+    "check_for_updates": true
+  }
+}

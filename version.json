@@ -1,12 +1,16 @@
 {
-  "version": "1.0.3",
-  "release_date": "2026-01-12",
-  "download_url": "https://github.com/agough77/hallmark-record/releases/download/v1.0.3/HallmarkRecord_Setup_v1.0.3.exe",
+  "version": "1.0.4",
+  "release_date": "2026-02-05",
+  "download_url": "https://github.com/agough77/hallmark-record/releases/download/v1.0.4/HallmarkRecord_Setup_v1.0.4.exe",
   "changelog": [
-    "FIXED: Editor now runs without visible console window",
-    "FIXED: Device detection in bundled EXE now works correctly",
-    "FIXED: FFmpeg path resolution for PyInstaller bundles",
-    "IMPROVED: Better user experience with background process"
+    "NEW: Complete wizard-style desktop editor with 5 steps",
+    "NEW: Live video preview with VLC integration",
+    "NEW: Draggable overlay positioning with real-time preview",
+    "NEW: Session management with date display and multi-select delete",
+    "NEW: Current session indicator and auto-selection",
+    "IMPROVED: Overlay sizing (35% default) and watermark scaling (15%)",
+    "IMPROVED: Smooth overlay dragging performance",
+    "FIXED: Double-click to open sessions"
   ],
   "minimum_version": "1.0.0",
   "critical_update": false

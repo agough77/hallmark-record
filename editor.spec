@@ -3,7 +3,7 @@
 block_cipher = None
 
 a = Analysis(
-    ['editor/video_editor.py'],
+    ['editor/wizard_editor.py'],
     pathex=[],
     binaries=[],
     datas=[
@@ -12,7 +12,7 @@ a = Analysis(
         ('hallmark-scribble/shared/ffmpeg/bin/ffplay.exe', 'ffmpeg/bin'),
         ('hallmark-scribble/shared/ffmpeg/bin/ffprobe.exe', 'ffmpeg/bin'),
     ],
-    hiddenimports=['flask', 'jinja2'],
+    hiddenimports=['PyQt5', 'PyQt5.QtCore', 'PyQt5.QtGui', 'PyQt5.QtWidgets', 'cv2', 'vlc'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
