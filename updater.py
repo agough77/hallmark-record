@@ -19,7 +19,7 @@ class UpdateChecker:
         self.latest_version = None
         self.update_info = None
         
-    def check_for_updates(self, timeout=5):
+    def check_for_updates(self, timeout=10):
         """
         Check if a new version is available
         Returns: (has_update, update_info_dict)
@@ -27,13 +27,21 @@ class UpdateChecker:
         try:
             logging.info(f"Checking for updates (current version: {self.current_version})")
             
+            # Try to use certifi for SSL certificates if available
+            import ssl
+            try:
+                import certifi
+                ssl_context = ssl.create_default_context(cafile=certifi.where())
+            except ImportError:
+                ssl_context = ssl.create_default_context()
+            
             # Fetch version.json from GitHub
             req = urllib.request.Request(
                 VERSION_URL,
                 headers={'User-Agent': 'HallmarkRecord/1.0'}
             )
             
-            with urllib.request.urlopen(req, timeout=timeout) as response:
+            with urllib.request.urlopen(req, timeout=timeout, context=ssl_context) as response:
                 data = response.read().decode('utf-8')
                 self.update_info = json.loads(data)
             
