@@ -993,7 +993,16 @@ class WizardEditor(QWidget):
         current = self.stacked_widget.currentIndex()
         
         # Validate step before proceeding
-        if current == 1:  # Step 2 - Overlay
+        if current == 0:  # Leaving Step 1 - Track selected video
+            # If user selected a specific video in Step 1, remember it
+            selected_items = self.video_list.selectedItems()
+            if len(selected_items) == 1:
+                # Single video selected - this is what user wants to edit
+                selected_video = selected_items[0].data(Qt.UserRole)
+                if not self.current_project.get('primary_video'):
+                    self.current_project['primary_video'] = selected_video
+        
+        elif current == 1:  # Step 2 - Overlay
             # Auto-apply overlay if enabled and not already applied
             if self.overlay_enable.isChecked():
                 bg_video = self.bg_video_combo.currentData()
@@ -1012,11 +1021,16 @@ class WizardEditor(QWidget):
                         return  # Wait for processing to complete
                     elif reply == QMessageBox.Cancel:
                         return  # Don't proceed
-            else:
-                # User disabled overlay, use background video directly
-                bg_video = self.bg_video_combo.currentData()
-                if bg_video and not self.current_project.get('overlay_video'):
-                    self.current_project['overlay_video'] = bg_video
+            
+            # If no overlay was applied, use the appropriate source video
+            if not self.current_project.get('overlay_video'):
+                # Priority: primary_video (selected in Step 1) > merged_video > bg_video_combo > first source
+                source_video = (self.current_project.get('primary_video') or
+                               self.current_project.get('merged_video') or
+                               self.bg_video_combo.currentData() or
+                               (self.current_project['source_videos'][0] if self.current_project['source_videos'] else None))
+                if source_video:
+                    self.current_project['overlay_video'] = source_video
         
         elif current == 2:  # Step 3 - Watermark
             # Auto-apply watermark if enabled and not already applied
