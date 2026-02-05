@@ -1,9 +1,9 @@
 {
-  "version": "1.0.6",
+  "version": "1.0.7",
   "release_date": "2026-02-05",
-  "download_url": "https://github.com/agough77/hallmark-record/releases/download/v1.0.6/HallmarkRecord_Setup_v1.0.6.exe",
+  "download_url": "https://github.com/agough77/hallmark-record/releases/download/v1.0.7/HallmarkRecord_Setup_v1.0.7.exe",
   "changelog": [
-    "FIXED: Update checker now works reliably in installed version",
+    "FIXED: Update checker SSL certificates now properly bundled in executable",
     "FIXED: Video selection in Step 1 properly used when no overlay/watermark applied",
     "FIXED: Console windows no longer appear during FFmpeg processing",
     "REMOVED: Separate non-functional Editor.exe"
