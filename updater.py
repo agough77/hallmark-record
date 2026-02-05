@@ -9,7 +9,7 @@ from packaging import version
 import logging
 
 # Configuration
-CURRENT_VERSION = "1.0.3"
+CURRENT_VERSION = "1.0.4"
 VERSION_URL = "https://raw.githubusercontent.com/agough77/hallmark-record/main/version.json"
 RELEASES_URL = "https://github.com/agough77/hallmark-record/releases/latest"
 
