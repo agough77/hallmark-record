@@ -195,7 +195,10 @@ class VideoProcessor(QThread):
             ])
         
         self.progress_update.emit(30, "Merging videos...")
-        result = subprocess.run(command, capture_output=True, text=True)
+        # Hide console window on Windows
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        result = subprocess.run(command, capture_output=True, text=True, startupinfo=startupinfo if sys.platform == 'win32' else None)
         
         if result.returncode == 0:
             self.progress_update.emit(100, "Merge complete!")
@@ -250,7 +253,10 @@ class VideoProcessor(QThread):
         ]
         
         self.progress_update.emit(50, "Processing overlay...")
-        result = subprocess.run(command, capture_output=True, text=True)
+        # Hide console window on Windows
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        result = subprocess.run(command, capture_output=True, text=True, startupinfo=startupinfo if sys.platform == 'win32' else None)
         
         if result.returncode == 0:
             self.progress_update.emit(100, "Overlay applied!")
@@ -295,7 +301,10 @@ class VideoProcessor(QThread):
         ]
         
         self.progress_update.emit(50, "Processing watermark...")
-        result = subprocess.run(command, capture_output=True, text=True)
+        # Hide console window on Windows
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        result = subprocess.run(command, capture_output=True, text=True, startupinfo=startupinfo if sys.platform == 'win32' else None)
         
         if result.returncode == 0:
             self.progress_update.emit(100, "Watermark added!")
@@ -326,7 +335,10 @@ class VideoProcessor(QThread):
         ]
         
         self.progress_update.emit(50, "Exporting video...")
-        result = subprocess.run(command, capture_output=True, text=True)
+        # Hide console window on Windows
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        result = subprocess.run(command, capture_output=True, text=True, startupinfo=startupinfo if sys.platform == 'win32' else None)
         
         if result.returncode == 0:
             self.progress_update.emit(100, "Export complete!")
