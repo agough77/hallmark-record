@@ -2,6 +2,8 @@
 
 block_cipher = None
 
+import certifi
+
 a = Analysis(
     ['main.py'],
     pathex=[],
@@ -11,6 +13,7 @@ a = Analysis(
         ('hallmark-scribble/shared/ffmpeg/bin/ffmpeg.exe', 'ffmpeg/bin'),
         ('hallmark-scribble/shared/ffmpeg/bin/ffplay.exe', 'ffmpeg/bin'),
         ('hallmark-scribble/shared/ffmpeg/bin/ffprobe.exe', 'ffmpeg/bin'),
+        (certifi.where(), 'certifi'),
     ],
     hiddenimports=['packaging', 'packaging.version', 'packaging.specifiers', 'packaging.requirements', 'flask', 'jinja2', 'certifi'],
     hookspath=[],

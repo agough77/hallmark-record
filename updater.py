@@ -29,9 +29,20 @@ class UpdateChecker:
             
             # Try to use certifi for SSL certificates if available
             import ssl
+            import os
+            import sys
             try:
                 import certifi
-                ssl_context = ssl.create_default_context(cafile=certifi.where())
+                # When running as PyInstaller bundle, look for bundled cacert.pem
+                if getattr(sys, 'frozen', False):
+                    bundle_dir = sys._MEIPASS
+                    cert_path = os.path.join(bundle_dir, 'certifi', 'cacert.pem')
+                    if os.path.exists(cert_path):
+                        ssl_context = ssl.create_default_context(cafile=cert_path)
+                    else:
+                        ssl_context = ssl.create_default_context(cafile=certifi.where())
+                else:
+                    ssl_context = ssl.create_default_context(cafile=certifi.where())
             except ImportError:
                 ssl_context = ssl.create_default_context()
             
