@@ -2,7 +2,7 @@
 ; Requires Inno Setup 6.0 or later: https://jrsoftware.org/isinfo.php
 
 #define MyAppName "Hallmark Record"
-#define MyAppVersion "1.0.4"
+#define MyAppVersion "1.0.5"
 #define MyAppPublisher "Hallmark University"
 #define MyAppURL "https://github.com/agough77/hallmark-record"
 #define MyAppExeName "Hallmark Recorder.exe"
